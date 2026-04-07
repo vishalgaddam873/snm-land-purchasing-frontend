@@ -18,16 +18,15 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  BranchesFilterBar,
-  EMPTY_BRANCH_LIST_FILTERS,
-  type BranchListFilterValues,
-} from "@/components/branches/branches-filter-bar";
-import type { DepartmentSelectOption } from "@/components/branches/department-searchable-select";
 import type { ZoneSelectOption } from "@/components/branches/zone-searchable-select";
 import type { Crumb } from "@/components/layout/page-header";
 import { PageHeader } from "@/components/layout/page-header";
 import { AppDataGrid } from "@/components/tables/app-data-grid";
+import {
+  EMPTY_SECTOR_LIST_FILTERS,
+  SectorsFilterBar,
+  type SectorListFilterValues,
+} from "@/components/zones/sectors-filter-bar";
 import IconButton from "@mui/material/IconButton";
 import Stack from "@mui/material/Stack";
 import { type GridColDef } from "@mui/x-data-grid";
@@ -37,76 +36,37 @@ import { cn } from "@/lib/utils";
 import { Pencil, Plus, Trash2 } from "lucide-react";
 import * as React from "react";
 
-type PopulatedDepartment = { _id: string; name: string; code: string };
-
 type PopulatedZone = {
   _id: string;
   name: string;
   zoneNumber: string;
-  departmentId?: PopulatedDepartment | string;
 };
 
-type PopulatedSector = { _id: string; name: string; sectorNumber?: string };
-
-type BranchRow = {
+type SectorRow = {
   _id: string;
   name: string;
+  /** Present for all sectors created after `sectorNumber` was added. */
+  sectorNumber?: string;
   zoneId: PopulatedZone | string;
-  sectorId?: PopulatedSector | string | null;
   status: "active" | "inactive" | "deleted";
 };
 
-type BranchGridRow = BranchRow & {
-  id: string;
-  zoneDisplay: string;
-  departmentDisplay: string;
-  sectorDisplay: string;
-};
+type SectorGridRow = SectorRow & { id: string; zoneDisplay: string };
 
-function zoneLabel(z: BranchRow): string {
-  const zone = z.zoneId;
-  if (zone && typeof zone === "object" && "name" in zone) {
-    return `${zone.name} (${zone.zoneNumber})`;
+function zoneLabel(s: SectorRow): string {
+  const z = s.zoneId;
+  if (z && typeof z === "object" && "name" in z) {
+    return `${z.name} (${z.zoneNumber})`;
   }
   return "—";
 }
 
-function departmentLabel(b: BranchRow): string {
-  const zone = b.zoneId;
-  if (!zone || typeof zone !== "object" || !("departmentId" in zone)) {
-    return "—";
+function zoneIdValue(s: SectorRow): string {
+  const z = s.zoneId;
+  if (z && typeof z === "object" && "_id" in z) {
+    return String(z._id);
   }
-  const d = zone.departmentId;
-  if (d && typeof d === "object" && "name" in d) {
-    return `${d.name} (${d.code})`;
-  }
-  return "—";
-}
-
-function zoneIdValue(b: BranchRow): string {
-  const zone = b.zoneId;
-  if (zone && typeof zone === "object" && "_id" in zone) {
-    return String(zone._id);
-  }
-  return String(zone ?? "");
-}
-
-function sectorLabel(b: BranchRow): string {
-  const s = b.sectorId;
-  if (s && typeof s === "object" && "name" in s && s.name?.trim()) {
-    const num = s.sectorNumber?.trim();
-    return num ? `${s.name} (${num})` : s.name;
-  }
-  return "—";
-}
-
-function sectorIdValue(b: BranchRow): string {
-  const s = b.sectorId;
-  if (s && typeof s === "object" && "_id" in s) {
-    return String(s._id);
-  }
-  if (typeof s === "string" && s) return s;
-  return "";
+  return String(z ?? "");
 }
 
 function zoneOptionId(z: ZoneSelectOption): string {
@@ -138,53 +98,7 @@ async function fetchAllActiveZonesForSelect(): Promise<ZoneSelectOption[]> {
   return data as ZoneSelectOption[];
 }
 
-/** Must stay ≤ backend `PaginationQueryDto` limit (Max 100). */
-const DEPARTMENT_SELECT_PAGE_LIMIT = 100;
-
-type DeptListRow = {
-  _id: string;
-  name: string;
-  code: string;
-  status?: string;
-};
-
-type SectorOptionRow = { _id: string; name: string; sectorNumber?: string };
-
-async function fetchSectorsForZone(
-  zoneId: string,
-): Promise<SectorOptionRow[]> {
-  if (!zoneId.trim()) return [];
-  const res = await fetch(
-    `/api/sectors/for-select?zoneId=${encodeURIComponent(zoneId)}`,
-    { cache: "no-store" },
-  );
-  const data = await res.json().catch(() => []);
-  if (!res.ok || !Array.isArray(data)) return [];
-  return data as SectorOptionRow[];
-}
-
-async function fetchDepartmentsForSelect(): Promise<DepartmentSelectOption[]> {
-  const qs = new URLSearchParams({
-    page: "1",
-    limit: String(DEPARTMENT_SELECT_PAGE_LIMIT),
-  });
-  const res = await fetch(`/api/publicity-departments?${qs}`, {
-    cache: "no-store",
-  });
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok || !isPaginatedList<DeptListRow>(data)) {
-    return [];
-  }
-  return data.data
-    .filter((d) => d.status !== "deleted")
-    .map((d) => ({
-      _id: d._id,
-      name: d.name,
-      code: d.code,
-    }));
-}
-
-export function BranchesClient({
+export function SectorsClient({
   canManage,
   title,
   description,
@@ -196,39 +110,28 @@ export function BranchesClient({
   crumbs: Crumb[];
 }) {
   const [loading, setLoading] = React.useState(true);
-  const [zonesLoading, setZonesLoading] = React.useState(true);
-  const [departmentsLoading, setDepartmentsLoading] = React.useState(true);
-  const [rows, setRows] = React.useState<BranchRow[]>([]);
+  const [rows, setRows] = React.useState<SectorRow[]>([]);
   const [zones, setZones] = React.useState<ZoneSelectOption[]>([]);
-  const [departments, setDepartments] = React.useState<DepartmentSelectOption[]>(
-    [],
+  const [zonesLoading, setZonesLoading] = React.useState(true);
+  const [zonesFetchError, setZonesFetchError] = React.useState<string | null>(
+    null,
   );
   const [searchInput, setSearchInput] = React.useState("");
   const [debouncedSearch, setDebouncedSearch] = React.useState("");
   const [appliedFilters, setAppliedFilters] =
-    React.useState<BranchListFilterValues>(() => ({
-      ...EMPTY_BRANCH_LIST_FILTERS,
+    React.useState<SectorListFilterValues>(() => ({
+      ...EMPTY_SECTOR_LIST_FILTERS,
     }));
   const [error, setError] = React.useState<string | null>(null);
   const [formError, setFormError] = React.useState<string | null>(null);
-  const [zonesFetchError, setZonesFetchError] = React.useState<string | null>(
-    null,
-  );
-  const [departmentsFetchError, setDepartmentsFetchError] = React.useState<
-    string | null
-  >(null);
-  const [dialogZoneId, setDialogZoneId] = React.useState("");
-  const [dialogSectorId, setDialogSectorId] = React.useState("");
-  const [sectorsForDialog, setSectorsForDialog] = React.useState<
-    SectorOptionRow[]
-  >([]);
-  const [sectorsLoading, setSectorsLoading] = React.useState(false);
 
   const [open, setOpen] = React.useState(false);
-  const [edit, setEdit] = React.useState<BranchRow | null>(null);
-  const [branchToDelete, setBranchToDelete] =
-    React.useState<BranchRow | null>(null);
+  const [edit, setEdit] = React.useState<SectorRow | null>(null);
+  const [sectorToDelete, setSectorToDelete] = React.useState<SectorRow | null>(
+    null,
+  );
   const [deleteLoading, setDeleteLoading] = React.useState(false);
+  const [dialogZoneId, setDialogZoneId] = React.useState("");
 
   const [listPage, setListPage] = React.useState(1);
   const [listMeta, setListMeta] = React.useState<{
@@ -240,12 +143,8 @@ export function BranchesClient({
 
   const sortedZones = React.useMemo(() => sortZonesForSelect(zones), [zones]);
 
-  const fetchBranchesPage = React.useCallback(
-    async (
-      page: number,
-      search: string,
-      fv: BranchListFilterValues,
-    ) => {
+  const fetchSectorsPage = React.useCallback(
+    async (page: number, search: string, fv: SectorListFilterValues) => {
       setLoading(true);
       setError(null);
       try {
@@ -254,28 +153,26 @@ export function BranchesClient({
           limit: String(DEFAULT_TABLE_PAGE_SIZE),
         });
         if (search) qs.set("search", search);
-        if (fv.departmentId) qs.set("departmentId", fv.departmentId);
         if (fv.zoneId) qs.set("zoneId", fv.zoneId);
-        if (fv.sectorId) qs.set("sectorId", fv.sectorId);
         if (fv.status) qs.set("status", fv.status);
-        const res = await fetch(`/api/branches?${qs}`, { cache: "no-store" });
+        const res = await fetch(`/api/sectors?${qs}`, { cache: "no-store" });
         const data = await res.json().catch(() => ({}));
         if (!res.ok) {
           setError(
             Array.isArray(data?.message)
               ? data.message.join(", ")
-              : data?.message ?? "Failed to load branches",
+              : data?.message ?? "Failed to load sectors",
           );
           setRows([]);
           setListMeta(null);
-        } else if (isPaginatedList<BranchRow>(data)) {
+        } else if (isPaginatedList<SectorRow>(data)) {
           setRows(data.data);
           setListMeta(data.meta);
           if (data.meta.page !== page) {
             setListPage(data.meta.page);
           }
         } else {
-          setError("Invalid branches response");
+          setError("Invalid sectors response");
           setRows([]);
           setListMeta(null);
         }
@@ -303,8 +200,8 @@ export function BranchesClient({
   }, [debouncedSearch]);
 
   React.useEffect(() => {
-    void fetchBranchesPage(listPage, debouncedSearch, appliedFilters);
-  }, [listPage, debouncedSearch, appliedFilters, fetchBranchesPage]);
+    void fetchSectorsPage(listPage, debouncedSearch, appliedFilters);
+  }, [listPage, debouncedSearch, appliedFilters, fetchSectorsPage]);
 
   React.useEffect(() => {
     void (async () => {
@@ -323,57 +220,16 @@ export function BranchesClient({
   }, []);
 
   React.useEffect(() => {
-    void (async () => {
-      setDepartmentsLoading(true);
-      setDepartmentsFetchError(null);
-      try {
-        const list = await fetchDepartmentsForSelect();
-        setDepartments(list);
-      } catch {
-        setDepartments([]);
-        setDepartmentsFetchError("Could not load departments.");
-      } finally {
-        setDepartmentsLoading(false);
-      }
-    })();
-  }, []);
-
-  React.useEffect(() => {
     if (open) {
       setDialogZoneId(edit ? zoneIdValue(edit) : "");
-      setDialogSectorId(edit ? sectorIdValue(edit) : "");
     }
   }, [open, edit]);
-
-  React.useEffect(() => {
-    if (!open || !dialogZoneId.trim()) {
-      setSectorsForDialog([]);
-      return;
-    }
-    let cancelled = false;
-    setSectorsLoading(true);
-    void (async () => {
-      try {
-        const list = await fetchSectorsForZone(dialogZoneId);
-        if (!cancelled) setSectorsForDialog(list);
-      } catch {
-        if (!cancelled) setSectorsForDialog([]);
-      } finally {
-        if (!cancelled) setSectorsLoading(false);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [open, dialogZoneId]);
 
   function closeForm() {
     setFormError(null);
     setOpen(false);
     setEdit(null);
     setDialogZoneId("");
-    setDialogSectorId("");
-    setSectorsForDialog([]);
   }
 
   async function onSave(e: React.FormEvent<HTMLFormElement>) {
@@ -381,19 +237,18 @@ export function BranchesClient({
     setFormError(null);
     const form = new FormData(e.currentTarget);
     const name = String(form.get("name") ?? "").trim();
+    const sectorNumber = String(form.get("sectorNumber") ?? "").trim();
     const zoneId = dialogZoneId.trim();
-    const status = String(form.get("status") ?? "active") as BranchRow["status"];
+    const status = String(form.get("status") ?? "active") as SectorRow["status"];
 
-    if (!name || !zoneId) {
-      setFormError("Branch name and zone are required.");
+    if (!name || !sectorNumber || !zoneId) {
+      setFormError("Sector name, sector number, and zone are required.");
       return;
     }
 
-    const url = edit ? `/api/branches/${edit._id}` : "/api/branches";
+    const url = edit ? `/api/sectors/${edit._id}` : "/api/sectors";
     const method = edit ? "PATCH" : "POST";
-    const sectorId =
-      dialogSectorId.trim() !== "" ? dialogSectorId.trim() : null;
-    const body = { name, zoneId, status, sectorId };
+    const body = { name, sectorNumber, zoneId, status };
 
     const res = await fetch(url, {
       method,
@@ -411,15 +266,15 @@ export function BranchesClient({
     }
 
     closeForm();
-    await fetchBranchesPage(listPage, debouncedSearch, appliedFilters);
+    await fetchSectorsPage(listPage, debouncedSearch, appliedFilters);
   }
 
   async function confirmDelete() {
-    if (!branchToDelete) return;
+    if (!sectorToDelete) return;
     setError(null);
     setDeleteLoading(true);
     try {
-      const res = await fetch(`/api/branches/${branchToDelete._id}`, {
+      const res = await fetch(`/api/sectors/${sectorToDelete._id}`, {
         method: "DELETE",
       });
       const data = await res.json().catch(() => ({}));
@@ -427,8 +282,8 @@ export function BranchesClient({
         setError(data?.message ?? "Delete failed");
         return;
       }
-      setBranchToDelete(null);
-      await fetchBranchesPage(listPage, debouncedSearch, appliedFilters);
+      setSectorToDelete(null);
+      await fetchSectorsPage(listPage, debouncedSearch, appliedFilters);
     } finally {
       setDeleteLoading(false);
     }
@@ -438,20 +293,18 @@ export function BranchesClient({
   const shellPage = listMeta?.page ?? listPage;
   const limit = listMeta?.limit ?? DEFAULT_TABLE_PAGE_SIZE;
 
-  const gridRows = React.useMemo<BranchGridRow[]>(
+  const gridRows = React.useMemo<SectorGridRow[]>(
     () =>
-      rows.map((b) => ({
-        ...b,
-        id: b._id,
-        zoneDisplay: zoneLabel(b),
-        departmentDisplay: departmentLabel(b),
-        sectorDisplay: sectorLabel(b),
+      rows.map((s) => ({
+        ...s,
+        id: s._id,
+        zoneDisplay: zoneLabel(s),
       })),
     [rows],
   );
 
-  const columns = React.useMemo<GridColDef<BranchGridRow>[]>(() => {
-    const cols: GridColDef<BranchGridRow>[] = [];
+  const columns = React.useMemo<GridColDef<SectorGridRow>[]>(() => {
+    const cols: GridColDef<SectorGridRow>[] = [];
     if (canManage) {
       cols.push({
         field: "actions",
@@ -466,7 +319,7 @@ export function BranchesClient({
           <Stack direction="row" spacing={0.25} justifyContent="center">
             <IconButton
               size="small"
-              aria-label="Edit branch"
+              aria-label="Edit sector"
               onClick={() => {
                 setEdit(params.row);
                 setOpen(true);
@@ -477,8 +330,8 @@ export function BranchesClient({
             <IconButton
               size="small"
               color="error"
-              aria-label="Delete branch"
-              onClick={() => setBranchToDelete(params.row)}
+              aria-label="Delete sector"
+              onClick={() => setSectorToDelete(params.row)}
             >
               <Trash2 className="size-4" />
             </IconButton>
@@ -487,24 +340,18 @@ export function BranchesClient({
       });
     }
     cols.push(
-      { field: "name", headerName: "Branch name", flex: 1, minWidth: 140 },
       {
-        field: "sectorDisplay",
-        headerName: "Sector",
-        flex: 0.55,
-        minWidth: 100,
+        field: "sectorNumber",
+        headerName: "Sector no.",
+        width: 104,
+        valueGetter: (_value, row) => row.sectorNumber?.trim() || "—",
       },
+      { field: "name", headerName: "Sector name", flex: 1, minWidth: 140 },
       {
         field: "zoneDisplay",
         headerName: "Zone",
         flex: 0.85,
         minWidth: 140,
-      },
-      {
-        field: "departmentDisplay",
-        headerName: "Department",
-        flex: 0.75,
-        minWidth: 132,
       },
       {
         field: "status",
@@ -534,7 +381,6 @@ export function BranchesClient({
                 if (!next) {
                   setEdit(null);
                   setDialogZoneId("");
-                  setDialogSectorId("");
                 } else {
                   setFormError(null);
                 }
@@ -550,13 +396,14 @@ export function BranchesClient({
                 }
               >
                 <Plus className="size-4" />
-                Add branch
+                Add sector
               </DialogTrigger>
               <DialogContent className="rounded-2xl">
                 <DialogHeader>
-                  <DialogTitle>{edit ? "Edit branch" : "Add branch"}</DialogTitle>
+                  <DialogTitle>{edit ? "Edit sector" : "Add sector"}</DialogTitle>
                   <DialogDescription>
-                    Choose the zone this branch sits under.
+                    Sectors are grouped under a zone. Branches can optionally
+                    reference a sector.
                   </DialogDescription>
                 </DialogHeader>
                 <form
@@ -565,9 +412,20 @@ export function BranchesClient({
                   onSubmit={onSave}
                 >
                   <div className="space-y-2">
-                    <Label htmlFor="branch-name">Branch name</Label>
+                    <Label htmlFor="sector-number">Sector number</Label>
                     <Input
-                      id="branch-name"
+                      id="sector-number"
+                      name="sectorNumber"
+                      required
+                      placeholder="e.g. 1, 1A"
+                      defaultValue={edit?.sectorNumber ?? ""}
+                      className="h-10 rounded-xl"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="sector-name">Sector name</Label>
+                    <Input
+                      id="sector-name"
                       name="name"
                       required
                       defaultValue={edit?.name ?? ""}
@@ -575,16 +433,13 @@ export function BranchesClient({
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="branch-zoneId">Zone</Label>
+                    <Label htmlFor="sector-zoneId">Zone</Label>
                     <Select
                       value={dialogZoneId || undefined}
-                      onValueChange={(v) => {
-                        setDialogZoneId(v ?? "");
-                        setDialogSectorId("");
-                      }}
+                      onValueChange={(v) => setDialogZoneId(v ?? "")}
                     >
                       <SelectTrigger
-                        id="branch-zoneId"
+                        id="sector-zoneId"
                         className="h-10 w-full rounded-xl"
                       >
                         <SelectValue placeholder="Select zone" />
@@ -603,44 +458,9 @@ export function BranchesClient({
                     </Select>
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="branch-sectorId">Sector (optional)</Label>
-                    <Select
-                      value={dialogSectorId || "__none__"}
-                      onValueChange={(v) =>
-                        setDialogSectorId(v === "__none__" ? "" : (v ?? ""))
-                      }
-                      disabled={!dialogZoneId.trim() || sectorsLoading}
-                    >
-                      <SelectTrigger
-                        id="branch-sectorId"
-                        className="h-10 w-full rounded-xl"
-                      >
-                        <SelectValue
-                          placeholder={
-                            !dialogZoneId.trim()
-                              ? "Select a zone first"
-                              : sectorsLoading
-                                ? "Loading sectors…"
-                                : "No sector"
-                          }
-                        />
-                      </SelectTrigger>
-                      <SelectContent className="max-h-72">
-                        <SelectItem value="__none__">No sector</SelectItem>
-                        {sectorsForDialog.map((s) => (
-                          <SelectItem key={s._id} value={s._id}>
-                            {s.sectorNumber?.trim()
-                              ? `${s.name} (${s.sectorNumber})`
-                              : s.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="branch-status">Status</Label>
+                    <Label htmlFor="sector-status">Status</Label>
                     <select
-                      id="branch-status"
+                      id="sector-status"
                       name="status"
                       defaultValue={edit?.status ?? "active"}
                       className={cn(
@@ -678,7 +498,7 @@ export function BranchesClient({
       />
 
       <div className="space-y-4">
-        <BranchesFilterBar
+        <SectorsFilterBar
           search={searchInput}
           onSearchChange={setSearchInput}
           appliedFilters={appliedFilters}
@@ -689,82 +509,79 @@ export function BranchesClient({
           onClearAll={() => {
             setSearchInput("");
             setDebouncedSearch("");
-            setAppliedFilters({ ...EMPTY_BRANCH_LIST_FILTERS });
+            setAppliedFilters({ ...EMPTY_SECTOR_LIST_FILTERS });
             setListPage(1);
           }}
-          departments={departments}
-          departmentsLoading={departmentsLoading}
-          departmentsFetchError={departmentsFetchError}
           zones={zones}
           zonesLoading={zonesLoading}
           zonesFetchError={zonesFetchError}
         />
 
-      {canManage ? (
-        <Dialog
-          open={branchToDelete !== null}
-          onOpenChange={(next) => {
-            if (!next) setBranchToDelete(null);
-          }}
-        >
-          <DialogContent
-            className="max-w-md rounded-2xl"
-            showCloseButton={!deleteLoading}
+        {canManage ? (
+          <Dialog
+            open={sectorToDelete !== null}
+            onOpenChange={(next) => {
+              if (!next) setSectorToDelete(null);
+            }}
           >
-            <DialogHeader>
-              <DialogTitle>Delete branch?</DialogTitle>
-              <DialogDescription>
-                Are you sure you want to remove{" "}
-                <span className="font-medium text-foreground">
-                  {branchToDelete?.name}
-                </span>
-                ? It will be marked as deleted.
-              </DialogDescription>
-            </DialogHeader>
-            <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-              <Button
-                type="button"
-                variant="outline"
-                className="rounded-xl"
-                disabled={deleteLoading}
-                onClick={() => setBranchToDelete(null)}
-              >
-                Cancel
-              </Button>
-              <Button
-                type="button"
-                variant="destructive"
-                className="rounded-xl"
-                disabled={deleteLoading}
-                onClick={() => void confirmDelete()}
-              >
-                {deleteLoading ? "Deleting…" : "Delete"}
-              </Button>
-            </div>
-          </DialogContent>
-        </Dialog>
-      ) : null}
+            <DialogContent
+              className="max-w-md rounded-2xl"
+              showCloseButton={!deleteLoading}
+            >
+              <DialogHeader>
+                <DialogTitle>Delete sector?</DialogTitle>
+                <DialogDescription>
+                  Are you sure you want to remove{" "}
+                  <span className="font-medium text-foreground">
+                    {sectorToDelete?.name}
+                  </span>
+                  ? It will be marked as deleted.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="rounded-xl"
+                  disabled={deleteLoading}
+                  onClick={() => setSectorToDelete(null)}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="button"
+                  variant="destructive"
+                  className="rounded-xl"
+                  disabled={deleteLoading}
+                  onClick={() => void confirmDelete()}
+                >
+                  {deleteLoading ? "Deleting…" : "Delete"}
+                </Button>
+              </div>
+            </DialogContent>
+          </Dialog>
+        ) : null}
 
-      {error ? (
-        <p className="rounded-xl border border-destructive/25 bg-destructive/10 px-3 py-2 text-sm text-destructive">
-          {error}
-        </p>
-      ) : null}
+        {error ? (
+          <p className="rounded-xl border border-destructive/25 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+            {error}
+          </p>
+        ) : null}
 
-      <AppDataGrid
-        rows={gridRows}
-        columns={columns}
-        loading={loading}
-        rowCount={pageTotal}
-        paginationModel={{
-          page: Math.max(0, shellPage - 1),
-          pageSize: limit,
-        }}
-        onPaginationModelChange={(model) => {
-          setListPage(model.page + 1);
-        }}
-        noRowsLabel="No branches found."
-      />
+        <AppDataGrid
+          rows={gridRows}
+          columns={columns}
+          loading={loading}
+          rowCount={pageTotal}
+          paginationModel={{
+            page: Math.max(0, shellPage - 1),
+            pageSize: limit,
+          }}
+          onPaginationModelChange={(model) => {
+            setListPage(model.page + 1);
+          }}
+          noRowsLabel="No sectors found."
+        />
       </div>
     </div>
   );

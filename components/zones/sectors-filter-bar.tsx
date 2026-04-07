@@ -19,14 +19,6 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
-  DepartmentSearchableSelect,
-  type DepartmentSelectOption,
-} from "@/components/branches/department-searchable-select";
-import {
-  SectorSearchableSelect,
-  type SectorSelectOption,
-} from "@/components/branches/sector-searchable-select";
-import {
   ZoneSearchableSelect,
   type ZoneSelectOption,
 } from "@/components/branches/zone-searchable-select";
@@ -35,57 +27,35 @@ import { cn } from "@/lib/utils";
 import { Search, SlidersHorizontal } from "lucide-react";
 import * as React from "react";
 
-export type BranchListFilterValues = {
-  departmentId: string;
+export type SectorListFilterValues = {
   zoneId: string;
-  sectorId: string;
   status: string;
 };
 
-export const EMPTY_BRANCH_LIST_FILTERS: BranchListFilterValues = {
-  departmentId: "",
+export const EMPTY_SECTOR_LIST_FILTERS: SectorListFilterValues = {
   zoneId: "",
-  sectorId: "",
   status: "",
 };
 
-const STATUS_FILTER_ALL = "__branch_status_all__";
+const STATUS_FILTER_ALL = "__sector_status_all__";
 
-export function countActiveBranchFilters(f: BranchListFilterValues): number {
-  return (
-    (f.departmentId ? 1 : 0) +
-    (f.zoneId ? 1 : 0) +
-    (f.sectorId ? 1 : 0) +
-    (f.status ? 1 : 0)
-  );
-}
-
-function zoneDeptId(z: ZoneSelectOption): string {
-  return z.departmentId != null && z.departmentId !== ""
-    ? String(z.departmentId)
-    : "";
-}
-
-function sortZonesForSelect(zones: ZoneSelectOption[]): ZoneSelectOption[] {
-  return [...zones].sort((x, y) =>
-    (x.zoneNumber ?? "").localeCompare(y.zoneNumber ?? "", undefined, {
-      numeric: true,
-      sensitivity: "base",
-    }),
-  );
+export function countActiveSectorFilters(f: SectorListFilterValues): number {
+  return (f.zoneId ? 1 : 0) + (f.status ? 1 : 0);
 }
 
 function FilterField({
   label,
   htmlFor,
+  className,
   children,
 }: {
   label: string;
   htmlFor: string;
+  className?: string;
   children: React.ReactNode;
 }) {
   return (
-    <div className="min-w-0 space-y-1.5">
+    <div className={cn("min-w-0 space-y-1.5", className)}>
       <Label
         htmlFor={htmlFor}
         className="text-xs font-medium text-muted-foreground"
@@ -100,134 +70,54 @@ function FilterField({
 const selectTriggerClass =
   "h-10 w-full rounded-xl border-border/80 bg-background text-[13px] shadow-sm";
 
-type BranchesFilterBarProps = {
+function sortZones(zones: ZoneSelectOption[]): ZoneSelectOption[] {
+  return [...zones].sort((x, y) =>
+    (x.zoneNumber ?? "").localeCompare(y.zoneNumber ?? "", undefined, {
+      numeric: true,
+      sensitivity: "base",
+    }),
+  );
+}
+
+function zoneOptionId(z: ZoneSelectOption): string {
+  return z._id != null && z._id !== "" ? String(z._id) : "";
+}
+
+type SectorsFilterBarProps = {
   search: string;
   onSearchChange: (value: string) => void;
-  appliedFilters: BranchListFilterValues;
-  onApplyFilters: (next: BranchListFilterValues) => void;
+  appliedFilters: SectorListFilterValues;
+  onApplyFilters: (next: SectorListFilterValues) => void;
   onClearAll: () => void;
-  departments: DepartmentSelectOption[];
-  departmentsLoading: boolean;
-  departmentsFetchError: string | null;
   zones: ZoneSelectOption[];
   zonesLoading: boolean;
   zonesFetchError: string | null;
   className?: string;
 };
 
-export function BranchesFilterBar({
+export function SectorsFilterBar({
   search,
   onSearchChange,
   appliedFilters,
   onApplyFilters,
   onClearAll,
-  departments,
-  departmentsLoading,
-  departmentsFetchError,
   zones,
   zonesLoading,
   zonesFetchError,
   className,
-}: BranchesFilterBarProps) {
+}: SectorsFilterBarProps) {
   const [filterDialogOpen, setFilterDialogOpen] = React.useState(false);
   const [draftFilters, setDraftFilters] =
-    React.useState<BranchListFilterValues>(appliedFilters);
-  const [filterSectors, setFilterSectors] = React.useState<
-    SectorSelectOption[]
-  >([]);
-  const [sectorsLoading, setSectorsLoading] = React.useState(false);
-  const [sectorsFetchError, setSectorsFetchError] = React.useState<
-    string | null
-  >(null);
+    React.useState<SectorListFilterValues>(appliedFilters);
 
-  const sortedZones = React.useMemo(() => sortZonesForSelect(zones), [zones]);
-
-  const sortedDepartments = React.useMemo(
-    () =>
-      [...departments].sort((a, b) =>
-        a.name.localeCompare(b.name, undefined, { sensitivity: "base" }),
-      ),
-    [departments],
-  );
-
-  const zonesForDeptPicker = React.useMemo(() => {
-    if (!draftFilters.departmentId) return sortedZones;
-    return sortedZones.filter(
-      (z) => zoneDeptId(z) === draftFilters.departmentId,
-    );
-  }, [sortedZones, draftFilters.departmentId]);
-
-  const departmentTriggerLabel = React.useMemo(() => {
-    if (!draftFilters.departmentId) return "All departments";
-    if (departmentsLoading) return "Loading…";
-    const d = sortedDepartments.find(
-      (x) => x._id === draftFilters.departmentId,
-    );
-    return d ? `${d.name} (${d.code})` : "Unknown department";
-  }, [draftFilters.departmentId, sortedDepartments, departmentsLoading]);
+  const sortedZones = React.useMemo(() => sortZones(zones), [zones]);
 
   const zoneTriggerLabel = React.useMemo(() => {
     if (!draftFilters.zoneId) return "All zones";
     if (zonesLoading) return "Loading…";
-    const z = zonesForDeptPicker.find((x) => x._id === draftFilters.zoneId);
+    const z = sortedZones.find((x) => zoneOptionId(x) === draftFilters.zoneId);
     return z ? `${z.name} (${z.zoneNumber})` : "Unknown zone";
-  }, [draftFilters.zoneId, zonesForDeptPicker, zonesLoading]);
-
-  React.useEffect(() => {
-    if (!filterDialogOpen || !draftFilters.zoneId.trim()) {
-      setFilterSectors([]);
-      setSectorsFetchError(null);
-      if (filterDialogOpen && !draftFilters.zoneId.trim()) {
-        setSectorsLoading(false);
-      }
-      return;
-    }
-    let cancelled = false;
-    setSectorsLoading(true);
-    setSectorsFetchError(null);
-    void (async () => {
-      try {
-        const res = await fetch(
-          `/api/sectors/for-select?zoneId=${encodeURIComponent(draftFilters.zoneId)}`,
-          { cache: "no-store" },
-        );
-        const data = await res.json().catch(() => []);
-        if (cancelled) return;
-        if (res.ok && Array.isArray(data)) {
-          setFilterSectors(data as SectorSelectOption[]);
-        } else {
-          setFilterSectors([]);
-          setSectorsFetchError("Could not load sectors.");
-        }
-      } catch {
-        if (!cancelled) {
-          setFilterSectors([]);
-          setSectorsFetchError("Could not load sectors.");
-        }
-      } finally {
-        if (!cancelled) setSectorsLoading(false);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [filterDialogOpen, draftFilters.zoneId]);
-
-  const sectorTriggerLabel = React.useMemo(() => {
-    if (!draftFilters.zoneId.trim()) return "Select a zone first";
-    if (!draftFilters.sectorId) return "All sectors";
-    if (sectorsLoading) return "Loading…";
-    const s = filterSectors.find((x) => x._id === draftFilters.sectorId);
-    if (!s) return "Unknown sector";
-    return s.sectorNumber?.trim()
-      ? `${s.name} (${s.sectorNumber})`
-      : s.name;
-  }, [
-    draftFilters.sectorId,
-    draftFilters.zoneId,
-    filterSectors,
-    sectorsLoading,
-  ]);
+  }, [draftFilters.zoneId, sortedZones, zonesLoading]);
 
   const statusTriggerLabel = React.useMemo(
     () =>
@@ -237,7 +127,7 @@ export function BranchesFilterBar({
     [draftFilters.status],
   );
 
-  const appliedFilterCount = countActiveBranchFilters(appliedFilters);
+  const appliedFilterCount = countActiveSectorFilters(appliedFilters);
   const hasSearch = search.trim() !== "";
   const hasAnyActive = hasSearch || appliedFilterCount > 0;
 
@@ -247,35 +137,11 @@ export function BranchesFilterBar({
   }
 
   function resetDraft() {
-    setDraftFilters({ ...EMPTY_BRANCH_LIST_FILTERS });
+    setDraftFilters({ ...EMPTY_SECTOR_LIST_FILTERS });
   }
 
-  function patchDraft(patch: Partial<BranchListFilterValues>) {
-    setDraftFilters((f) => {
-      const next = { ...f, ...patch };
-      if (
-        patch.departmentId !== undefined &&
-        patch.departmentId !== f.departmentId
-      ) {
-        if (next.zoneId) {
-          const z = sortedZones.find((x) => x._id === next.zoneId);
-          if (!z) {
-            next.zoneId = "";
-            next.sectorId = "";
-          } else if (
-            next.departmentId &&
-            zoneDeptId(z) !== next.departmentId
-          ) {
-            next.zoneId = "";
-            next.sectorId = "";
-          }
-        }
-      }
-      if (patch.zoneId !== undefined && patch.zoneId !== f.zoneId) {
-        next.sectorId = "";
-      }
-      return next;
-    });
+  function patchDraft(patch: Partial<SectorListFilterValues>) {
+    setDraftFilters((f) => ({ ...f, ...patch }));
   }
 
   return (
@@ -286,7 +152,7 @@ export function BranchesFilterBar({
         )}
       >
         <label
-          htmlFor="branches-search"
+          htmlFor="sectors-search"
           className="relative flex min-w-0 flex-1 items-center"
         >
           <Search
@@ -294,11 +160,11 @@ export function BranchesFilterBar({
             aria-hidden
           />
           <Input
-            id="branches-search"
+            id="sectors-search"
             type="search"
             value={search}
             onChange={(e) => onSearchChange(e.target.value)}
-            placeholder="Search branches…"
+            placeholder="Search sectors…"
             className={cn(
               "h-full min-w-0 flex-1 rounded-none border-0 bg-transparent pl-11 pr-3 text-[15px] shadow-none ring-0 focus-visible:ring-0 md:text-[15px]",
               "placeholder:text-muted-foreground/75",
@@ -331,10 +197,9 @@ export function BranchesFilterBar({
 
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="text-xs text-muted-foreground">
-          Search updates as you type. Use the filter control to narrow by
-          department, zone, sector, and status — then{" "}
-          <span className="font-medium text-foreground/90">Save filters</span> to
-          apply.
+          Search updates as you type. Use filters for zone and status, then{" "}
+          <span className="font-medium text-foreground/90">Save filters</span>{" "}
+          to apply.
         </p>
         {hasAnyActive ? (
           <Button
@@ -349,11 +214,6 @@ export function BranchesFilterBar({
         ) : null}
       </div>
 
-      {departmentsFetchError ? (
-        <p className="text-xs text-amber-700 dark:text-amber-400">
-          {departmentsFetchError}
-        </p>
-      ) : null}
       {zonesFetchError ? (
         <p className="text-xs text-amber-700 dark:text-amber-400">
           {zonesFetchError}
@@ -364,11 +224,7 @@ export function BranchesFilterBar({
         open={filterDialogOpen}
         onOpenChange={(open) => {
           if (open) {
-            const initial = { ...appliedFilters };
-            if (initial.sectorId && !initial.zoneId.trim()) {
-              initial.sectorId = "";
-            }
-            setDraftFilters(initial);
+            setDraftFilters({ ...appliedFilters });
           }
           setFilterDialogOpen(open);
         }}
@@ -380,35 +236,20 @@ export function BranchesFilterBar({
           <DialogHeader className="space-y-1 border-b border-border/60 px-5 py-4 text-left">
             <DialogTitle className="text-base font-semibold">Filters</DialogTitle>
             <DialogDescription className="text-sm">
-              Adjust fields below, then save to update the table. Closing without
-              saving keeps your current list.
+              Adjust fields below, then save to update the table.
             </DialogDescription>
           </DialogHeader>
 
           <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">
-            <div className="grid grid-cols-1 gap-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <FilterField
-                label="Department"
-                htmlFor="dlg-branch-filter-department"
+                label="Zone"
+                htmlFor="dlg-sector-filter-zone"
+                className="sm:col-span-2"
               >
-                <DepartmentSearchableSelect
-                  id="dlg-branch-filter-department"
-                  departments={sortedDepartments}
-                  disabled={departmentsLoading}
-                  value={draftFilters.departmentId}
-                  onChange={(departmentId) => patchDraft({ departmentId })}
-                  triggerLabel={departmentTriggerLabel}
-                  showAllOption
-                  allOptionLabel="All departments"
-                  triggerClassName={selectTriggerClass}
-                  menuZIndexClass="z-[400]"
-                />
-              </FilterField>
-
-              <FilterField label="Zone" htmlFor="dlg-branch-filter-zone">
                 <ZoneSearchableSelect
-                  id="dlg-branch-filter-zone"
-                  zones={zonesForDeptPicker}
+                  id="dlg-sector-filter-zone"
+                  zones={sortedZones}
                   disabled={zonesLoading}
                   value={draftFilters.zoneId}
                   onChange={(zoneId) => patchDraft({ zoneId })}
@@ -420,31 +261,11 @@ export function BranchesFilterBar({
                 />
               </FilterField>
 
-              <FilterField label="Sector" htmlFor="dlg-branch-filter-sector">
-                <SectorSearchableSelect
-                  id="dlg-branch-filter-sector"
-                  sectors={filterSectors}
-                  disabled={
-                    !draftFilters.zoneId.trim() ||
-                    zonesLoading ||
-                    sectorsLoading
-                  }
-                  value={draftFilters.sectorId}
-                  onChange={(sectorId) => patchDraft({ sectorId })}
-                  triggerLabel={sectorTriggerLabel}
-                  showAllOption
-                  allOptionLabel="All sectors"
-                  triggerClassName={selectTriggerClass}
-                  menuZIndexClass="z-[400]"
-                />
-              </FilterField>
-              {sectorsFetchError && filterDialogOpen && draftFilters.zoneId ? (
-                <p className="text-xs text-amber-700 dark:text-amber-400">
-                  {sectorsFetchError}
-                </p>
-              ) : null}
-
-              <FilterField label="Record status" htmlFor="dlg-branch-filter-status">
+              <FilterField
+                label="Record status"
+                htmlFor="dlg-sector-filter-status"
+                className="sm:col-span-2"
+              >
                 <Select
                   value={draftFilters.status || STATUS_FILTER_ALL}
                   onValueChange={(v) =>
@@ -454,7 +275,7 @@ export function BranchesFilterBar({
                   }
                 >
                   <SelectTrigger
-                    id="dlg-branch-filter-status"
+                    id="dlg-sector-filter-status"
                     className={selectTriggerClass}
                   >
                     <SelectValue placeholder="All statuses">

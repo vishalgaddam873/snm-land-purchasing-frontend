@@ -2,10 +2,13 @@ import type { ZoneSelectOption } from "@/components/branches/zone-searchable-sel
 
 export type ZoneMini = { _id: string; name: string; zoneNumber: string };
 
+export type SectorMini = { _id: string; name: string; sectorNumber?: string };
+
 export type PopulatedBranch = {
   _id: string;
   name: string;
   zoneId?: ZoneMini | string;
+  sectorId?: SectorMini | string | null;
 };
 
 export type BranchOption = {
@@ -24,6 +27,8 @@ export type PropertyRow = {
   constructionStatus: string;
   locatedAt: string;
   bhawanType: string;
+  /** Only when bhawanType is vacant_plot */
+  vacantPlotStatus?: string | null;
   remarks: string;
   status: "active" | "inactive" | "deleted";
   registrationType: string;
@@ -42,9 +47,23 @@ export const FILTER_ALL_BRANCHES = "__all_branches__";
 /** Sentinel for "no enum filter" on the properties list (branch uses FILTER_ALL_BRANCHES). */
 export const PROPERTY_ENUM_FILTER_ALL = "__property_enum_all__";
 
+export function vacantPlotStatusLabel(
+  bhawanType: string,
+  status: string | null | undefined,
+): string {
+  if (bhawanType !== "vacant_plot") return "—";
+  if (status == null || !String(status).trim()) return "—";
+  const m: Record<string, string> = {
+    fit_for_construction: "Fit for construction",
+    not_fit_for_construction: "Not fit for construction",
+  };
+  return m[status] ?? status;
+}
+
 export function bhawanLabel(v: string): string {
   const m: Record<string, string> = {
     bhawan: "Bhawan",
+    bhawan_under_construction: "Bhawan under construction",
     shed: "Shed",
     self_made_shed: "Self made shed",
     building: "Building",
@@ -117,6 +136,21 @@ export function zoneNumberLabel(p: PropertyRow): string {
 export function zoneNameLabel(p: PropertyRow): string {
   const z = resolvedZone(p);
   return z?.name != null && z.name !== "" ? z.name : "—";
+}
+
+export function sectorNameLabel(p: PropertyRow): string {
+  const b = p.branchId;
+  if (!b || typeof b !== "object" || !("sectorId" in b)) return "—";
+  const s = b.sectorId;
+  if (s && typeof s === "object" && "name" in s && s.name?.trim()) {
+    const num =
+      "sectorNumber" in s &&
+      typeof (s as { sectorNumber?: string }).sectorNumber === "string"
+        ? (s as { sectorNumber: string }).sectorNumber.trim()
+        : "";
+    return num ? `${s.name} (${num})` : s.name;
+  }
+  return "—";
 }
 
 export function branchNameOnly(p: PropertyRow): string {

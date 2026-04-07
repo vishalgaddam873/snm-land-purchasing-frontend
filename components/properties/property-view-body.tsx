@@ -8,6 +8,7 @@ import {
   labelFromSnake,
   propertyTypeLabel,
   registrationLabel,
+  vacantPlotStatusLabel,
   verifiedByLabel,
   zoneNameLabel,
   zoneNumberLabel,
@@ -87,6 +88,14 @@ export function PropertyViewBody({
           <Field label="Bhawan type">
             {bhawanLabel(property.bhawanType)}
           </Field>
+          {property.bhawanType === "vacant_plot" ? (
+            <Field label="Vacant plot status">
+              {vacantPlotStatusLabel(
+                property.bhawanType,
+                property.vacantPlotStatus,
+              )}
+            </Field>
+          ) : null}
           <Field label="Registration">
             {registrationLabel(property.registrationType)}
           </Field>

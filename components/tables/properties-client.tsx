@@ -14,6 +14,7 @@ import {
   type PropertyListFilterValues,
 } from "@/components/properties/properties-filter-bar";
 import { AppDataGrid } from "@/components/tables/app-data-grid";
+import type { DepartmentSelectOption } from "@/components/branches/department-searchable-select";
 import type { ZoneSelectOption } from "@/components/branches/zone-searchable-select";
 import {
   bhawanLabel,
@@ -27,6 +28,7 @@ import {
   verifiedByLabel,
   zoneNameLabel,
   zoneNumberLabel,
+  sectorNameLabel,
   branchNameOnly,
   type BranchOption,
   type PropertyRow,
@@ -36,15 +38,46 @@ import { DEFAULT_TABLE_PAGE_SIZE } from "@/hooks/use-client-pagination";
 import IconButton from "@mui/material/IconButton";
 import Stack from "@mui/material/Stack";
 import { type GridColDef } from "@mui/x-data-grid";
-import { Eye, Pencil, Trash2 } from "lucide-react";
+import { Download, Eye, Pencil, Trash2 } from "lucide-react";
 import Link from "next/link";
 import * as React from "react";
+
+const DEPARTMENT_SELECT_PAGE_LIMIT = 100;
+
+type DeptListRow = {
+  _id: string;
+  name: string;
+  code: string;
+  status: string;
+};
+
+async function fetchDepartmentsForSelect(): Promise<DepartmentSelectOption[]> {
+  const qs = new URLSearchParams({
+    page: "1",
+    limit: String(DEPARTMENT_SELECT_PAGE_LIMIT),
+  });
+  const res = await fetch(`/api/publicity-departments?${qs}`, {
+    cache: "no-store",
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok || !isPaginatedList<DeptListRow>(data)) {
+    return [];
+  }
+  return data.data
+    .filter((d) => d.status !== "deleted")
+    .map((d) => ({
+      _id: d._id,
+      name: d.name,
+      code: d.code,
+    }));
+}
 
 /** Row shape passed to MUI Data Grid (flat fields + `id`). */
 type PropertyGridRow = PropertyRow & {
   id: string;
   zoneNo: string;
   zoneNameCol: string;
+  sectorCol: string;
   branchNameCol: string;
   remarksText: string;
   bhawanDisplay: string;
@@ -55,6 +88,40 @@ type PropertyGridRow = PropertyRow & {
   verifiedByDisplay: string;
   statusDisplay: string;
 };
+
+function buildPropertiesExportQuery(
+  search: string,
+  fv: PropertyListFilterValues,
+): string {
+  const qs = new URLSearchParams();
+  if (search) qs.set("search", search);
+  if (fv.departmentId) qs.set("departmentId", fv.departmentId);
+  if (fv.zoneId) qs.set("zoneId", fv.zoneId);
+  if (fv.sectorId) qs.set("sectorId", fv.sectorId);
+  if (fv.branchId) qs.set("branchId", fv.branchId);
+  fv.propertyTypes.forEach((v) => qs.append("propertyType", v));
+  fv.statuses.forEach((v) => qs.append("status", v));
+  fv.verificationStatuses.forEach((v) => qs.append("verificationStatus", v));
+  fv.registrationTypes.forEach((v) => qs.append("registrationType", v));
+  fv.constructionStatuses.forEach((v) => qs.append("constructionStatus", v));
+  fv.bhawanTypes.forEach((v) => qs.append("bhawanType", v));
+  return qs.toString();
+}
+
+function filenameFromContentDisposition(cd: string | null): string | null {
+  if (!cd) return null;
+  const m = /filename\*=UTF-8''([^;]+)|filename="([^"]+)"|filename=([^;]+)/i.exec(
+    cd,
+  );
+  if (!m) return null;
+  const raw = (m[1] ?? m[2] ?? m[3] ?? "").trim();
+  if (!raw) return null;
+  try {
+    return decodeURIComponent(raw.replace(/"/g, ""));
+  } catch {
+    return raw.replace(/"/g, "");
+  }
+}
 
 export function PropertiesClient({ canManage }: { canManage: boolean }) {
   const [loading, setLoading] = React.useState(true);
@@ -72,6 +139,13 @@ export function PropertiesClient({ canManage }: { canManage: boolean }) {
   const [zonesFetchError, setZonesFetchError] = React.useState<string | null>(
     null,
   );
+  const [departments, setDepartments] = React.useState<DepartmentSelectOption[]>(
+    [],
+  );
+  const [departmentsLoading, setDepartmentsLoading] = React.useState(true);
+  const [departmentsFetchError, setDepartmentsFetchError] = React.useState<
+    string | null
+  >(null);
   const [searchInput, setSearchInput] = React.useState("");
   const [debouncedSearch, setDebouncedSearch] = React.useState("");
   const [appliedFilters, setAppliedFilters] =
@@ -86,6 +160,7 @@ export function PropertiesClient({ canManage }: { canManage: boolean }) {
     limit: number;
     totalPages: number;
   } | null>(null);
+  const [exportLoading, setExportLoading] = React.useState(false);
 
   const gridRows = React.useMemo<PropertyGridRow[]>(
     () =>
@@ -94,6 +169,7 @@ export function PropertiesClient({ canManage }: { canManage: boolean }) {
         id: r._id,
         zoneNo: zoneNumberLabel(r),
         zoneNameCol: zoneNameLabel(r),
+        sectorCol: sectorNameLabel(r),
         branchNameCol: branchNameOnly(r),
         remarksText: remarksPlainPreview(r.remarks),
         bhawanDisplay: bhawanLabel(r.bhawanType),
@@ -158,6 +234,12 @@ export function PropertiesClient({ canManage }: { canManage: boolean }) {
         headerName: "Zone",
         flex: 0.55,
         minWidth: 100,
+      },
+      {
+        field: "sectorCol",
+        headerName: "Sector",
+        flex: 0.45,
+        minWidth: 96,
       },
       {
         field: "branchNameCol",
@@ -233,18 +315,22 @@ export function PropertiesClient({ canManage }: { canManage: boolean }) {
           limit: String(DEFAULT_TABLE_PAGE_SIZE),
         });
         if (search) qs.set("search", search);
+        if (fv.departmentId) qs.set("departmentId", fv.departmentId);
         if (fv.zoneId) qs.set("zoneId", fv.zoneId);
+        if (fv.sectorId) qs.set("sectorId", fv.sectorId);
         if (fv.branchId) qs.set("branchId", fv.branchId);
-        if (fv.propertyType) qs.set("propertyType", fv.propertyType);
-        if (fv.status) qs.set("status", fv.status);
-        if (fv.verificationStatus) {
-          qs.set("verificationStatus", fv.verificationStatus);
-        }
-        if (fv.registrationType) qs.set("registrationType", fv.registrationType);
-        if (fv.constructionStatus) {
-          qs.set("constructionStatus", fv.constructionStatus);
-        }
-        if (fv.bhawanType) qs.set("bhawanType", fv.bhawanType);
+        fv.propertyTypes.forEach((v) => qs.append("propertyType", v));
+        fv.statuses.forEach((v) => qs.append("status", v));
+        fv.verificationStatuses.forEach((v) =>
+          qs.append("verificationStatus", v),
+        );
+        fv.registrationTypes.forEach((v) =>
+          qs.append("registrationType", v),
+        );
+        fv.constructionStatuses.forEach((v) =>
+          qs.append("constructionStatus", v),
+        );
+        fv.bhawanTypes.forEach((v) => qs.append("bhawanType", v));
         const res = await fetch(`/api/properties?${qs}`, { cache: "no-store" });
         const data = await res.json().catch(() => ({}));
         if (!res.ok) {
@@ -325,6 +411,55 @@ export function PropertiesClient({ canManage }: { canManage: boolean }) {
     })();
   }, []);
 
+  React.useEffect(() => {
+    void (async () => {
+      setDepartmentsLoading(true);
+      setDepartmentsFetchError(null);
+      try {
+        const list = await fetchDepartmentsForSelect();
+        setDepartments(list);
+      } catch {
+        setDepartments([]);
+        setDepartmentsFetchError("Could not load departments.");
+      } finally {
+        setDepartmentsLoading(false);
+      }
+    })();
+  }, []);
+
+  async function handleExportExcel() {
+    setError(null);
+    setExportLoading(true);
+    try {
+      const q = buildPropertiesExportQuery(debouncedSearch, appliedFilters);
+      const url = q ? `/api/properties/export?${q}` : "/api/properties/export";
+      const res = await fetch(url, { cache: "no-store" });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        setError(
+          Array.isArray(data?.message)
+            ? data.message.join(", ")
+            : data?.message ?? "Export failed",
+        );
+        return;
+      }
+      const blob = await res.blob();
+      const fallback = `properties-export-${new Date().toISOString().slice(0, 10)}.xlsx`;
+      const name =
+        filenameFromContentDisposition(
+          res.headers.get("content-disposition"),
+        ) ?? fallback;
+      const href = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = href;
+      a.download = name;
+      a.click();
+      URL.revokeObjectURL(href);
+    } finally {
+      setExportLoading(false);
+    }
+  }
+
   async function confirmDelete() {
     if (!toDelete) return;
     setError(null);
@@ -371,6 +506,21 @@ export function PropertiesClient({ canManage }: { canManage: boolean }) {
         zones={zones}
         zonesLoading={zonesLoading}
         zonesFetchError={zonesFetchError}
+        departments={departments}
+        departmentsLoading={departmentsLoading}
+        departmentsFetchError={departmentsFetchError}
+        exportAction={
+          <Button
+            type="button"
+            variant="outline"
+            className="h-12 shrink-0 rounded-xl px-4"
+            disabled={exportLoading}
+            onClick={() => void handleExportExcel()}
+          >
+            <Download className="mr-2 size-4 shrink-0" />
+            {exportLoading ? "Exporting…" : "Export Excel"}
+          </Button>
+        }
       />
 
       {error ? (

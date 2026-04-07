@@ -63,6 +63,9 @@ export function PropertyEditForm({
   const [remarksHtml, setRemarksHtml] = React.useState(
     property?.remarks ?? "",
   );
+  const [bhawanType, setBhawanType] = React.useState(
+    property?.bhawanType ?? "bhawan",
+  );
 
   const sorted = React.useMemo(
     () => sortBranchesForSelect(branches),
@@ -83,8 +86,10 @@ export function PropertyEditForm({
   React.useEffect(() => {
     if (property) {
       setBranchId(branchIdValue(property));
+      setBhawanType(property.bhawanType ?? "bhawan");
     } else if (mode === "create") {
       setBranchId("");
+      setBhawanType("bhawan");
     }
   }, [property, mode]);
 
@@ -105,6 +110,8 @@ export function PropertyEditForm({
       return;
     }
 
+    const bhawanTypeVal = String(form.get("bhawanType"));
+
     const body: Record<string, unknown> = {
       propertyName,
       branchId: branchId.trim(),
@@ -112,10 +119,17 @@ export function PropertyEditForm({
       areaHeld,
       constructionStatus: String(form.get("constructionStatus")),
       locatedAt,
-      bhawanType: String(form.get("bhawanType")),
+      bhawanType: bhawanTypeVal,
       remarks: normalizeRemarksForSave(remarksHtml),
       registrationType: String(form.get("registrationType")),
     };
+
+    if (bhawanTypeVal === "vacant_plot") {
+      const vps = String(form.get("vacantPlotStatus") ?? "").trim();
+      body.vacantPlotStatus = vps.length ? vps : null;
+    } else {
+      body.vacantPlotStatus = null;
+    }
 
     if (showInternalNotes) {
       body.internalNotes = String(form.get("internalNotes") ?? "").trim();
@@ -274,9 +288,13 @@ export function PropertyEditForm({
             id="bhawanType"
             name="bhawanType"
             className={selectClass}
-            defaultValue={property?.bhawanType ?? "bhawan"}
+            value={bhawanType}
+            onChange={(e) => setBhawanType(e.target.value)}
           >
             <option value="bhawan">Bhawan</option>
+            <option value="bhawan_under_construction">
+              Bhawan under construction
+            </option>
             <option value="shed">Shed</option>
             <option value="self_made_shed">Self made shed</option>
             <option value="building">Building</option>
@@ -285,6 +303,26 @@ export function PropertyEditForm({
             <option value="na">NA</option>
           </select>
         </div>
+        {bhawanType === "vacant_plot" ? (
+          <div className={`${field} md:col-span-1 lg:col-span-3`}>
+            <Label htmlFor="vacantPlotStatus" className="text-foreground">
+              Vacant plot status
+            </Label>
+            <select
+              id="vacantPlotStatus"
+              name="vacantPlotStatus"
+              className={selectClass}
+              defaultValue={property?.vacantPlotStatus ?? ""}
+              key={`${property?._id ?? "new"}-vps-${bhawanType}`}
+            >
+              <option value="">Not set</option>
+              <option value="fit_for_construction">Fit for construction</option>
+              <option value="not_fit_for_construction">
+                Not fit for construction
+              </option>
+            </select>
+          </div>
+        ) : null}
         <div className={`${field} md:col-span-1 lg:col-span-3`}>
           <Label htmlFor="registrationType" className="text-foreground">
             Registration

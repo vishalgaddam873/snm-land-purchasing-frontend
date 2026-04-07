@@ -428,7 +428,7 @@ export function DashboardPropertyAnalytics() {
                 <KpiCard
                   title="Bhawans"
                   value={data.sectionB.bhawans}
-                  hint="Bhawan + shed bhawan types"
+                  hint="Bhawan, bhawan under construction + shed"
                   icon={Building2}
                   accent="from-blue-500/20 to-transparent"
                 />
@@ -613,7 +613,7 @@ export function DashboardPropertyAnalytics() {
                         {
                           code: "B1",
                           label:
-                            "Total No. of Bhawans (Bhawan + Shed bhawan types)",
+                            "Total No. of Bhawans (Bhawan + under construction + shed)",
                           value: data.sectionB.bhawans,
                         },
                         {
@@ -642,8 +642,9 @@ export function DashboardPropertyAnalytics() {
               <p className="text-center text-[11px] leading-relaxed text-muted-foreground">
                 Registered / to-register rows count main branch sites only;
                 adjoining and additional rows are separate units. B1 is the count of
-                bhawan types “bhawan” and “shed”. B2 counts bhawan type “building”
-                only (self-made shed and NA are not in B1 or B2).
+                bhawan types “bhawan”, “bhawan_under_construction”, and “shed”. B2
+                counts bhawan type “building” only (self-made shed and NA are not in
+                B1 or B2).
               </p>
             </>
           ) : null}

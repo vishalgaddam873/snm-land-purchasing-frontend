@@ -25,13 +25,13 @@ export function LoginForm() {
     setLoading(true);
     try {
       const form = new FormData(e.currentTarget);
-      const email = String(form.get("email") ?? "");
+      const emailOrUsername = String(form.get("emailOrUsername") ?? "");
       const password = String(form.get("password") ?? "");
 
       const res = await fetch("/api/auth/login", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ emailOrUsername: email, password }),
+        body: JSON.stringify({ emailOrUsername, password }),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
@@ -50,20 +50,20 @@ export function LoginForm() {
       <CardHeader className="space-y-1">
         <CardTitle className="text-lg">Sign in</CardTitle>
         <CardDescription>
-          Use your department credentials.
+          Sign in with your username or email and password.
         </CardDescription>
       </CardHeader>
       <CardContent>
         <form className="space-y-4" onSubmit={onSubmit}>
           <div className="space-y-2">
-            <Label htmlFor="email">Email</Label>
+            <Label htmlFor="emailOrUsername">Username or email</Label>
             <Input
-              id="email"
-              name="email"
-              type="email"
-              autoComplete="email"
+              id="emailOrUsername"
+              name="emailOrUsername"
+              type="text"
+              autoComplete="username"
               required
-              placeholder="you@mission.org"
+              placeholder="username or you@mission.org"
               className="h-10 rounded-xl"
             />
           </div>

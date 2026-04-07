@@ -6,7 +6,6 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
@@ -20,11 +19,30 @@ import {
 } from "@/components/ui/sheet";
 import { mainNav } from "@/lib/nav";
 import { cn } from "@/lib/utils";
-import { Layers, LogOut, Menu, Shield } from "lucide-react";
+import { ChevronDown, Layers, LogOut, Menu, Shield, User } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import * as React from "react";
 import { MissionLogo } from "./mission-logo";
+
+function roleDisplayLabel(role?: "superadmin" | "admin" | "moderator") {
+  if (role === "superadmin") return "Super Admin";
+  if (role === "admin") return "Admin";
+  if (role === "moderator") return "Moderator";
+  return "User";
+}
+
+function initialsFromName(name: string): string {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  if (parts.length >= 2) {
+    return (
+      (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
+    );
+  }
+  const t = name.trim();
+  if (t.length >= 2) return t.slice(0, 2).toUpperCase();
+  return (t[0] ?? "U").toUpperCase();
+}
 
 function isNavActive(pathname: string, href: string) {
   if (href === "/dashboard") {
@@ -112,8 +130,9 @@ function SidebarNav({
 }
 
 export function DashboardShell({ children }: { children: React.ReactNode }) {
-  const [open, setOpen] = React.useState(false);
   const router = useRouter();
+  const [open, setOpen] = React.useState(false);
+  const [profileMenuOpen, setProfileMenuOpen] = React.useState(false);
   const [me, setMe] = React.useState<{
     name?: string;
     email?: string;
@@ -139,6 +158,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
 
   async function logout() {
     await fetch("/api/auth/logout", { method: "POST" });
+    setProfileMenuOpen(false);
     router.push("/login");
     router.refresh();
   }
@@ -206,46 +226,73 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
 
           <div className="ml-auto flex items-center gap-2">
             {meLoading ? null : me ? (
-              <DropdownMenu>
+              <DropdownMenu
+                open={profileMenuOpen}
+                onOpenChange={setProfileMenuOpen}
+              >
                 <DropdownMenuTrigger
                   className={cn(
-                    buttonVariants({ variant: "outline", size: "sm" }),
-                    "rounded-xl",
+                    "flex max-w-[min(100%,18rem)] items-center gap-2.5 rounded-full border border-border/90 bg-background px-2 py-1.5 pl-2 pr-2 text-left shadow-sm outline-none transition-colors",
+                    "hover:bg-muted/60 focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/40",
+                    profileMenuOpen && "bg-muted/40",
                   )}
+                  aria-label="Account menu"
                 >
-                  <Avatar className="mr-2 size-6">
-                    <AvatarFallback className="bg-primary/10 text-primary">
-                      {String(me?.name ?? "U")
-                        .slice(0, 1)
-                        .toUpperCase()}
+                  <Avatar className="size-9 shrink-0 border border-border/60">
+                    <AvatarFallback className="bg-primary text-sm font-semibold text-primary-foreground">
+                      {initialsFromName(me.name ?? "User")}
                     </AvatarFallback>
                   </Avatar>
-                  <span className="hidden sm:inline">
-                    {me?.name ?? "User"}
-                  </span>
+                  <div className="min-w-0 flex-1 max-sm:hidden">
+                    <p className="truncate text-sm font-semibold leading-tight text-foreground">
+                      {me.name ?? "User"}
+                    </p>
+                    <p className="truncate text-xs text-muted-foreground">
+                      {roleDisplayLabel(me.role)}
+                    </p>
+                  </div>
+                  <ChevronDown
+                    className={cn(
+                      "size-4 shrink-0 text-muted-foreground transition-transform",
+                      profileMenuOpen && "rotate-180",
+                    )}
+                    aria-hidden
+                  />
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-56">
-                  <DropdownMenuLabel className="space-y-0.5">
-                    <div className="text-sm font-semibold text-foreground">
-                      {me?.name ?? "User"}
-                    </div>
-                    <div className="text-xs font-normal text-muted-foreground">
-                      {me?.email ?? ""}
-                    </div>
-                  </DropdownMenuLabel>
-                  <DropdownMenuSeparator />
-                  {me?.role === "superadmin" ? (
+                <DropdownMenuContent
+                  align="end"
+                  sideOffset={8}
+                  className="w-52 rounded-xl p-1.5 shadow-lg ring-1 ring-foreground/10"
+                >
+                  <DropdownMenuItem
+                    className="cursor-pointer gap-2 rounded-lg py-2"
+                    onClick={() => {
+                      setProfileMenuOpen(false);
+                      router.push("/settings");
+                    }}
+                  >
+                    <User className="size-4 text-muted-foreground" />
+                    Profile
+                  </DropdownMenuItem>
+                  {me.role === "superadmin" ? (
                     <DropdownMenuItem
+                      className="cursor-pointer gap-2 rounded-lg py-2"
                       onClick={() => {
+                        setProfileMenuOpen(false);
                         router.push("/admin/users");
                       }}
                     >
-                        <Shield className="mr-2 size-4" />
-                        User management
+                      <Shield className="size-4 text-muted-foreground" />
+                      User management
                     </DropdownMenuItem>
                   ) : null}
-                  <DropdownMenuItem onClick={logout}>
-                    <LogOut className="mr-2 size-4" />
+                  <DropdownMenuSeparator className="my-1" />
+                  <DropdownMenuItem
+                    variant="destructive"
+                    className="cursor-pointer gap-2 rounded-lg py-2"
+                    onClick={() => void logout()}
+                  >
+                    <LogOut className="size-4" />
                     Logout
                   </DropdownMenuItem>
                 </DropdownMenuContent>

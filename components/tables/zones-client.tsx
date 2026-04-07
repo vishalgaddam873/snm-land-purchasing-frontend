@@ -64,7 +64,8 @@ function departmentIdValue(z: ZoneRow): string {
   return String(d ?? "");
 }
 
-const DEPARTMENT_SELECT_PAGE_LIMIT = 500;
+/** Must stay ≤ backend `PaginationQueryDto` limit (Max 100). */
+const DEPARTMENT_SELECT_PAGE_LIMIT = 100;
 
 async function fetchDepartmentsForZones(): Promise<DepartmentSelectOption[]> {
   const qs = new URLSearchParams({

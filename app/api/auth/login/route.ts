@@ -6,7 +6,8 @@ export async function POST(req: Request) {
   const body = await req.json();
 
   const res = await backendPostUnauthenticated("/auth/login", {
-    emailOrUsername: body.emailOrUsername ?? body.email ?? "",
+    emailOrUsername:
+      body.emailOrUsername ?? body.email ?? body.username ?? "",
     password: body.password ?? "",
   });
 
