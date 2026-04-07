@@ -1,4 +1,6 @@
+import type { DepartmentSelectOption } from "@/components/branches/department-searchable-select";
 import type { ZoneSelectOption } from "@/components/branches/zone-searchable-select";
+import { isPaginatedList } from "@/lib/api/paginated-list";
 
 export type ZoneMini = { _id: string; name: string; zoneNumber: string };
 
@@ -193,6 +195,46 @@ export async function fetchBranchesForSelect(): Promise<BranchOption[]> {
   const data = await res.json().catch(() => []);
   if (!Array.isArray(data)) return [];
   return (data as BranchOption[]).filter((b) => b.status !== "deleted");
+}
+
+const DEPARTMENT_SELECT_PAGE_LIMIT = 100;
+
+type DeptListRow = {
+  _id: string;
+  name: string;
+  code: string;
+  status: string;
+};
+
+export async function fetchDepartmentsForSelect(): Promise<
+  DepartmentSelectOption[]
+> {
+  const qs = new URLSearchParams({
+    page: "1",
+    limit: String(DEPARTMENT_SELECT_PAGE_LIMIT),
+  });
+  const res = await fetch(`/api/publicity-departments?${qs}`, {
+    cache: "no-store",
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok || !isPaginatedList<DeptListRow>(data)) {
+    return [];
+  }
+  return data.data
+    .filter((d) => d.status !== "deleted")
+    .map((d) => ({
+      _id: d._id,
+      name: d.name,
+      code: d.code,
+    }));
+}
+
+export function sortDepartmentsForSelect(
+  list: DepartmentSelectOption[],
+): DepartmentSelectOption[] {
+  return [...list].sort((a, b) =>
+    a.name.localeCompare(b.name, undefined, { sensitivity: "base" }),
+  );
 }
 
 export function labelFromSnake(s: string): string {

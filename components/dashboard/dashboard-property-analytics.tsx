@@ -2,16 +2,22 @@
 
 import { BranchSearchableSelect } from "@/components/properties/branch-searchable-select";
 import {
-  fetchActiveZonesForSelect,
-  fetchBranchesForSelect,
-  sortBranchesForSelect,
-  branchOptionId,
-  type BranchOption,
-} from "@/components/properties/property-helpers";
+  DepartmentSearchableSelect,
+  type DepartmentSelectOption,
+} from "@/components/branches/department-searchable-select";
 import {
   ZoneSearchableSelect,
   type ZoneSelectOption,
 } from "@/components/branches/zone-searchable-select";
+import {
+  fetchActiveZonesForSelect,
+  fetchBranchesForSelect,
+  fetchDepartmentsForSelect,
+  sortBranchesForSelect,
+  sortDepartmentsForSelect,
+  branchOptionId,
+  type BranchOption,
+} from "@/components/properties/property-helpers";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -38,11 +44,12 @@ import {
 } from "lucide-react";
 import * as React from "react";
 
-type AnalyticsScope = "overall" | "zone" | "branch";
+type AnalyticsScope = "overall" | "zone" | "department" | "branch";
 
 type PropertyAnalyticsResponse = {
   scope: AnalyticsScope;
   zoneId?: string;
+  departmentId?: string;
   branchId?: string;
   totalProperties: number;
   sectionA: {
@@ -79,11 +86,16 @@ const selectTriggerClass =
 export function DashboardPropertyAnalytics() {
   const [scope, setScope] = React.useState<AnalyticsScope>("overall");
   const [zoneId, setZoneId] = React.useState("");
+  const [departmentId, setDepartmentId] = React.useState("");
   const [branchId, setBranchId] = React.useState("");
 
   const [zones, setZones] = React.useState<ZoneSelectOption[]>([]);
+  const [departments, setDepartments] = React.useState<DepartmentSelectOption[]>(
+    [],
+  );
   const [branches, setBranches] = React.useState<BranchOption[]>([]);
   const [zonesLoading, setZonesLoading] = React.useState(true);
+  const [departmentsLoading, setDepartmentsLoading] = React.useState(true);
   const [branchesLoading, setBranchesLoading] = React.useState(true);
 
   const [data, setData] = React.useState<PropertyAnalyticsResponse | null>(
@@ -100,6 +112,10 @@ export function DashboardPropertyAnalytics() {
     () => sortBranchesForSelect(branches),
     [branches],
   );
+  const sortedDepartments = React.useMemo(
+    () => sortDepartmentsForSelect(departments),
+    [departments],
+  );
 
   const zoneTriggerLabel = React.useMemo(() => {
     if (!zoneId) return "Select zone";
@@ -107,6 +123,13 @@ export function DashboardPropertyAnalytics() {
     const z = sortedZones.find((x) => x._id === zoneId);
     return z ? `${z.name} (${z.zoneNumber})` : "Unknown zone";
   }, [zoneId, sortedZones, zonesLoading]);
+
+  const departmentTriggerLabel = React.useMemo(() => {
+    if (!departmentId) return "Select department";
+    if (departmentsLoading) return "Loading…";
+    const d = sortedDepartments.find((x) => x._id === departmentId);
+    return d ? `${d.name} (${d.code})` : "Unknown department";
+  }, [departmentId, sortedDepartments, departmentsLoading]);
 
   const branchTriggerLabel = React.useMemo(() => {
     if (!branchId) return "Select branch";
@@ -128,6 +151,19 @@ export function DashboardPropertyAnalytics() {
 
   React.useEffect(() => {
     void (async () => {
+      setDepartmentsLoading(true);
+      try {
+        setDepartments(await fetchDepartmentsForSelect());
+      } catch {
+        setDepartments([]);
+      } finally {
+        setDepartmentsLoading(false);
+      }
+    })();
+  }, []);
+
+  React.useEffect(() => {
+    void (async () => {
       setBranchesLoading(true);
       try {
         setBranches(await fetchBranchesForSelect());
@@ -140,6 +176,12 @@ export function DashboardPropertyAnalytics() {
   }, []);
 
   React.useEffect(() => {
+    if (scope === "department" && !departmentId) {
+      setData(null);
+      setError(null);
+      setLoading(false);
+      return;
+    }
     if (scope === "zone" && !zoneId) {
       setData(null);
       setError(null);
@@ -154,6 +196,8 @@ export function DashboardPropertyAnalytics() {
     }
 
     const qs = new URLSearchParams({ scope });
+    if (scope === "department" && departmentId)
+      qs.set("departmentId", departmentId);
     if (scope === "zone" && zoneId) qs.set("zoneId", zoneId);
     if (scope === "branch" && branchId) qs.set("branchId", branchId);
 
@@ -193,25 +237,31 @@ export function DashboardPropertyAnalytics() {
     return () => {
       cancelled = true;
     };
-  }, [scope, zoneId, branchId]);
+  }, [scope, zoneId, departmentId, branchId]);
 
   const summaryLine =
     scope === "overall"
       ? "Organization-wide property register (excludes deleted records)."
-      : scope === "zone"
-        ? "Scoped to branches in the selected zone."
-        : "Scoped to the selected branch only.";
+      : scope === "department"
+        ? "Scoped to branches in zones belonging to the selected department."
+        : scope === "zone"
+          ? "Scoped to branches in the selected zone."
+          : "Scoped to the selected branch only.";
 
   const scopeBadge =
     scope === "overall"
       ? "Overall"
-      : scope === "zone"
-        ? zoneTriggerLabel !== "Select zone"
-          ? zoneTriggerLabel
-          : "Zone"
-        : branchTriggerLabel !== "Select branch"
-          ? branchTriggerLabel
-          : "Branch";
+      : scope === "department"
+        ? departmentTriggerLabel !== "Select department"
+          ? departmentTriggerLabel
+          : "Department"
+        : scope === "zone"
+          ? zoneTriggerLabel !== "Select zone"
+            ? zoneTriggerLabel
+            : "Zone"
+          : branchTriggerLabel !== "Select branch"
+            ? branchTriggerLabel
+            : "Branch";
 
   const pieA = React.useMemo(() => {
     if (!data) return [];
@@ -278,6 +328,7 @@ export function DashboardPropertyAnalytics() {
   const showContent =
     data &&
     !(
+      (scope === "department" && !departmentId) ||
       (scope === "zone" && !zoneId) ||
       (scope === "branch" && !branchId)
     );
@@ -322,6 +373,12 @@ export function DashboardPropertyAnalytics() {
                   Overall
                 </TabsTrigger>
                 <TabsTrigger
+                  value="department"
+                  className="rounded-lg px-4 py-2 text-xs sm:text-sm"
+                >
+                  Department
+                </TabsTrigger>
+                <TabsTrigger
                   value="zone"
                   className="rounded-lg px-4 py-2 text-xs sm:text-sm"
                 >
@@ -336,6 +393,26 @@ export function DashboardPropertyAnalytics() {
               </TabsList>
 
               <TabsContent value="overall" className="mt-0" />
+
+              <TabsContent value="department" className="mt-0 space-y-1.5">
+                <Label
+                  htmlFor="dash-analytics-department"
+                  className="text-xs font-medium text-muted-foreground"
+                >
+                  Department
+                </Label>
+                <DepartmentSearchableSelect
+                  id="dash-analytics-department"
+                  departments={sortedDepartments}
+                  disabled={departmentsLoading}
+                  value={departmentId}
+                  onChange={setDepartmentId}
+                  triggerLabel={departmentTriggerLabel}
+                  showAllOption={false}
+                  triggerClassName={selectTriggerClass}
+                  menuZIndexClass="z-[400]"
+                />
+              </TabsContent>
 
               <TabsContent value="zone" className="mt-0 space-y-1.5">
                 <Label
@@ -387,13 +464,17 @@ export function DashboardPropertyAnalytics() {
             </p>
           ) : null}
 
-          {(scope === "zone" && !zoneId) || (scope === "branch" && !branchId) ? (
+          {(scope === "department" && !departmentId) ||
+          (scope === "zone" && !zoneId) ||
+          (scope === "branch" && !branchId) ? (
             <div className="rounded-2xl border border-dashed border-border/80 bg-muted/15 px-6 py-12 text-center">
               <MapPin className="mx-auto size-10 text-muted-foreground/50" />
               <p className="mt-3 text-sm font-medium text-foreground">
-                {scope === "zone"
-                  ? "Select a zone to load analytics"
-                  : "Select a branch to load analytics"}
+                {scope === "department"
+                  ? "Select a department to load analytics"
+                  : scope === "zone"
+                    ? "Select a zone to load analytics"
+                    : "Select a branch to load analytics"}
               </p>
               <p className="mt-1 text-xs text-muted-foreground">
                 KPIs and charts update automatically once a scope is chosen.
@@ -434,52 +515,7 @@ export function DashboardPropertyAnalytics() {
                 />
               </section>
 
-              <section className="grid gap-4 lg:grid-cols-2">
-                <ChartCard
-                  title="Registration & units"
-                  subtitle="Distribution by record type (A1–A4)"
-                >
-                  {pieA.length === 0 ? (
-                    <EmptyChart label="No data in this scope" />
-                  ) : (
-                    <ResponsiveContainer width="100%" height={280}>
-                      <PieChart>
-                        <Pie
-                          data={pieA}
-                          cx="50%"
-                          cy="50%"
-                          innerRadius={68}
-                          outerRadius={96}
-                          paddingAngle={2}
-                          dataKey="value"
-                          nameKey="name"
-                          strokeWidth={2}
-                          stroke="var(--card)"
-                        >
-                          {pieA.map((entry) => (
-                            <Cell key={entry.name} fill={entry.fill} />
-                          ))}
-                        </Pie>
-                        <Tooltip
-                          contentStyle={{
-                            borderRadius: "12px",
-                            border: "1px solid var(--border)",
-                            background: "var(--card)",
-                          }}
-                          formatter={(v: number) => [v, "Count"]}
-                        />
-                        <Legend
-                          verticalAlign="bottom"
-                          height={36}
-                          formatter={(value) => (
-                            <span className="text-xs text-foreground">{value}</span>
-                          )}
-                        />
-                      </PieChart>
-                    </ResponsiveContainer>
-                  )}
-                </ChartCard>
-
+              <section className="grid gap-4 lg:grid-cols-2 lg:items-start">
                 <ChartCard
                   title="Structure / land type"
                   subtitle="Bhawan vs building-type / plots (B1–B4)"
@@ -522,53 +558,6 @@ export function DashboardPropertyAnalytics() {
                       </Bar>
                     </BarChart>
                   </ResponsiveContainer>
-                </ChartCard>
-              </section>
-
-              <section className="grid gap-4 lg:grid-cols-2">
-                <ChartCard
-                  title="Structure share"
-                  subtitle="Donut view of land / building classification"
-                >
-                  {pieB.length === 0 ? (
-                    <EmptyChart label="No structure data in this scope" />
-                  ) : (
-                    <ResponsiveContainer width="100%" height={280}>
-                      <PieChart>
-                        <Pie
-                          data={pieB}
-                          cx="50%"
-                          cy="50%"
-                          innerRadius={68}
-                          outerRadius={96}
-                          paddingAngle={2}
-                          dataKey="value"
-                          nameKey="name"
-                          strokeWidth={2}
-                          stroke="var(--card)"
-                        >
-                          {pieB.map((entry) => (
-                            <Cell key={entry.name} fill={entry.fill} />
-                          ))}
-                        </Pie>
-                        <Tooltip
-                          contentStyle={{
-                            borderRadius: "12px",
-                            border: "1px solid var(--border)",
-                            background: "var(--card)",
-                          }}
-                          formatter={(v: number) => [v, "Count"]}
-                        />
-                        <Legend
-                          verticalAlign="bottom"
-                          height={36}
-                          formatter={(value) => (
-                            <span className="text-xs text-foreground">{value}</span>
-                          )}
-                        />
-                      </PieChart>
-                    </ResponsiveContainer>
-                  )}
                 </ChartCard>
 
                 <div className="rounded-2xl border border-border/80 bg-card/50 p-5 shadow-sm ring-1 ring-black/[0.03] dark:ring-white/[0.05]">
@@ -637,6 +626,98 @@ export function DashboardPropertyAnalytics() {
                     />
                   </div>
                 </div>
+              </section>
+
+              <section className="grid gap-4 lg:grid-cols-2">
+                <ChartCard
+                  title="Structure share"
+                  subtitle="Donut view of land / building classification"
+                >
+                  {pieB.length === 0 ? (
+                    <EmptyChart label="No structure data in this scope" />
+                  ) : (
+                    <ResponsiveContainer width="100%" height={280}>
+                      <PieChart>
+                        <Pie
+                          data={pieB}
+                          cx="50%"
+                          cy="50%"
+                          innerRadius={68}
+                          outerRadius={96}
+                          paddingAngle={2}
+                          dataKey="value"
+                          nameKey="name"
+                          strokeWidth={2}
+                          stroke="var(--card)"
+                        >
+                          {pieB.map((entry) => (
+                            <Cell key={entry.name} fill={entry.fill} />
+                          ))}
+                        </Pie>
+                        <Tooltip
+                          contentStyle={{
+                            borderRadius: "12px",
+                            border: "1px solid var(--border)",
+                            background: "var(--card)",
+                          }}
+                          formatter={(v: number) => [v, "Count"]}
+                        />
+                        <Legend
+                          verticalAlign="bottom"
+                          height={36}
+                          formatter={(value) => (
+                            <span className="text-xs text-foreground">{value}</span>
+                          )}
+                        />
+                      </PieChart>
+                    </ResponsiveContainer>
+                  )}
+                </ChartCard>
+
+                <ChartCard
+                  title="Registration & units"
+                  subtitle="Distribution by record type (A1–A4)"
+                >
+                  {pieA.length === 0 ? (
+                    <EmptyChart label="No data in this scope" />
+                  ) : (
+                    <ResponsiveContainer width="100%" height={280}>
+                      <PieChart>
+                        <Pie
+                          data={pieA}
+                          cx="50%"
+                          cy="50%"
+                          innerRadius={68}
+                          outerRadius={96}
+                          paddingAngle={2}
+                          dataKey="value"
+                          nameKey="name"
+                          strokeWidth={2}
+                          stroke="var(--card)"
+                        >
+                          {pieA.map((entry) => (
+                            <Cell key={entry.name} fill={entry.fill} />
+                          ))}
+                        </Pie>
+                        <Tooltip
+                          contentStyle={{
+                            borderRadius: "12px",
+                            border: "1px solid var(--border)",
+                            background: "var(--card)",
+                          }}
+                          formatter={(v: number) => [v, "Count"]}
+                        />
+                        <Legend
+                          verticalAlign="bottom"
+                          height={36}
+                          formatter={(value) => (
+                            <span className="text-xs text-foreground">{value}</span>
+                          )}
+                        />
+                      </PieChart>
+                    </ResponsiveContainer>
+                  )}
+                </ChartCard>
               </section>
 
               <p className="text-center text-[11px] leading-relaxed text-muted-foreground">

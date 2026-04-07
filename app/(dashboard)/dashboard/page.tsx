@@ -20,7 +20,7 @@ export default function DashboardPage() {
     <div className="space-y-8">
       <PageHeader
         title="Dashboard"
-        description="Live property analytics: filter by overall register, zone, or branch, then explore KPIs, charts, and detailed A/B breakdowns."
+        description="Live property analytics: filter by overall register, department, zone, or branch, then explore KPIs, charts, and detailed A/B breakdowns."
         crumbs={crumbs}
         actions={
           <Link
