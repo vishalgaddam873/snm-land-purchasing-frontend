@@ -173,6 +173,24 @@ function buildExportQuery(search: string, fv: PropertyListFilterValues): string 
   return qs.toString();
 }
 
+function isUnfilteredPropertyExport(
+  search: string,
+  fv: PropertyListFilterValues,
+): boolean {
+  if (search.trim()) return false;
+  if (fv.departmentId.trim()) return false;
+  if (fv.zoneId.trim()) return false;
+  if (fv.sectorId.trim()) return false;
+  if (fv.branchId.trim()) return false;
+  if (fv.propertyTypes.length) return false;
+  if (fv.statuses.length) return false;
+  if (fv.verificationStatuses.length) return false;
+  if (fv.registrationTypes.length) return false;
+  if (fv.constructionStatuses.length) return false;
+  if (fv.bhawanTypes.length) return false;
+  return true;
+}
+
 function filenameFromContentDisposition(cd: string | null): string | null {
   if (!cd) return null;
   const m = /filename\*=UTF-8''([^;]+)|filename="([^"]+)"|filename=([^;]+)/i.exec(
@@ -211,7 +229,9 @@ export const exportPropertiesExcel = createAsyncThunk<
     return rejectWithValue(msg);
   }
   const blob = await res.blob();
-  const fallback = `properties-export-${new Date().toISOString().slice(0, 10)}.xlsx`;
+  const fallback = isUnfilteredPropertyExport(debouncedSearch, appliedFilters)
+    ? "Master-PP-Data.xlsx"
+    : `properties-export-${new Date().toISOString().slice(0, 10)}.xlsx`;
   const name =
     filenameFromContentDisposition(res.headers.get("content-disposition")) ??
     fallback;

@@ -685,16 +685,27 @@ export function PropertiesFilterBar({
                 />
               </FilterField>
 
-              <FilterField label="Record status" htmlFor="dlg-filter-status">
+              <FilterField label="Bhawan type" htmlFor="dlg-filter-bhawan">
                 <EnumMultiSelectDropdown
-                  id="dlg-filter-status"
-                  emptyLabel="All statuses"
-                  options={[
-                    { value: "active", label: "Active" },
-                    { value: "inactive", label: "Inactive" },
-                  ]}
-                  values={draftFilters.statuses}
-                  onChange={(statuses) => patchDraft({ statuses })}
+                  id="dlg-filter-bhawan"
+                  emptyLabel="All bhawan types"
+                  options={(
+                    [
+                      "bhawan",
+                      "bhawan_under_construction",
+                      "shed",
+                      "self_made_shed",
+                      "building",
+                      "no_bhavan_no_plot",
+                      "vacant_plot",
+                      "na",
+                    ] as const
+                  ).map((key) => ({
+                    value: key,
+                    label: bhawanLabel(key),
+                  }))}
+                  values={draftFilters.bhawanTypes}
+                  onChange={(bhawanTypes) => patchDraft({ bhawanTypes })}
                   triggerClassName={selectTriggerClass}
                   menuZIndexClass="z-[400]"
                 />
@@ -768,33 +779,20 @@ export function PropertiesFilterBar({
                 />
               </FilterField>
 
-              <div className="sm:col-span-2">
-                <FilterField label="Bhawan type" htmlFor="dlg-filter-bhawan">
-                  <EnumMultiSelectDropdown
-                    id="dlg-filter-bhawan"
-                    emptyLabel="All bhawan types"
-                    options={(
-                      [
-                        "bhawan",
-                        "bhawan_under_construction",
-                        "shed",
-                        "self_made_shed",
-                        "building",
-                        "no_bhavan_no_plot",
-                        "vacant_plot",
-                        "na",
-                      ] as const
-                    ).map((key) => ({
-                      value: key,
-                      label: bhawanLabel(key),
-                    }))}
-                    values={draftFilters.bhawanTypes}
-                    onChange={(bhawanTypes) => patchDraft({ bhawanTypes })}
-                    triggerClassName={selectTriggerClass}
-                    menuZIndexClass="z-[400]"
-                  />
-                </FilterField>
-              </div>
+              <FilterField label="Record status" htmlFor="dlg-filter-status">
+                <EnumMultiSelectDropdown
+                  id="dlg-filter-status"
+                  emptyLabel="All statuses"
+                  options={[
+                    { value: "active", label: "Active" },
+                    { value: "inactive", label: "Inactive" },
+                  ]}
+                  values={draftFilters.statuses}
+                  onChange={(statuses) => patchDraft({ statuses })}
+                  triggerClassName={selectTriggerClass}
+                  menuZIndexClass="z-[400]"
+                />
+              </FilterField>
             </div>
           </div>
 

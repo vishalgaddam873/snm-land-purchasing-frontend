@@ -91,6 +91,10 @@ export function PropertiesClient({ canManage }: { canManage: boolean }) {
   const listMeta = useAppSelector((s) => s.propertiesPage.listMeta);
   const exportLoading = useAppSelector((s) => s.propertiesPage.exportLoading);
 
+  const shellPage = listMeta?.page ?? listPage;
+  const limit = listMeta?.limit ?? DEFAULT_TABLE_PAGE_SIZE;
+  const pageTotal = listMeta?.total ?? 0;
+
   const gridRows = React.useMemo<PropertyGridRow[]>(
     () =>
       rows.map((r) => ({
@@ -157,54 +161,58 @@ export function PropertiesClient({ canManage }: { canManage: boolean }) {
       ),
     });
     cols.push(
-      { field: "zoneNo", headerName: "Zone no.", width: 92 },
+      { field: "zoneNo", headerName: "Zone No.", width: 92 },
       {
         field: "zoneNameCol",
-        headerName: "Zone",
+        headerName: "Zone Name",
         flex: 0.55,
         minWidth: 100,
       },
       {
         field: "sectorCol",
-        headerName: "Sector",
+        headerName: "Sector Name",
         flex: 0.45,
         minWidth: 96,
       },
       {
         field: "branchNameCol",
-        headerName: "Branch",
+        headerName: "Branch Name",
         flex: 0.65,
         minWidth: 118,
       },
       {
         field: "propertyTypeDisplay",
-        headerName: "Property type",
+        headerName: "Property Type",
         minWidth: 128,
         flex: 0.4,
       },
       {
         field: "propertyName",
-        headerName: "Property details",
+        headerName: "Property Name / Details",
         flex: 1,
         minWidth: 140,
       },
-      { field: "areaHeld", headerName: "Area", flex: 0.55, minWidth: 100 },
+      {
+        field: "areaHeld",
+        headerName: "Properties Held (Area)",
+        flex: 0.55,
+        minWidth: 120,
+      },
       {
         field: "locatedAt",
-        headerName: "Location",
+        headerName: "Location at (Place)",
         flex: 0.75,
         minWidth: 120,
       },
       {
-        field: "remarksText",
-        headerName: "Remarks",
-        flex: 1,
-        minWidth: 160,
+        field: "bhawanDisplay",
+        headerName: "Bhawan / Structure Type",
+        minWidth: 128,
+        flex: 0.4,
       },
-      { field: "bhawanDisplay", headerName: "Bhawan", minWidth: 108, flex: 0.35 },
       {
         field: "constructionDisplay",
-        headerName: "Construction",
+        headerName: "Construction status",
         minWidth: 124,
         flex: 0.5,
       },
@@ -213,6 +221,12 @@ export function PropertiesClient({ canManage }: { canManage: boolean }) {
         headerName: "Registration",
         minWidth: 126,
         flex: 0.5,
+      },
+      {
+        field: "remarksText",
+        headerName: "Remarks",
+        flex: 1,
+        minWidth: 160,
       },
       {
         field: "verificationDisplay",
@@ -253,10 +267,6 @@ export function PropertiesClient({ canManage }: { canManage: boolean }) {
   React.useEffect(() => {
     void dispatch(loadPropertiesFilterOptions());
   }, [dispatch]);
-
-  const pageTotal = listMeta?.total ?? 0;
-  const shellPage = listMeta?.page ?? listPage;
-  const limit = listMeta?.limit ?? DEFAULT_TABLE_PAGE_SIZE;
 
   return (
     <div className="space-y-4">
