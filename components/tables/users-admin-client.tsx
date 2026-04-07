@@ -10,21 +10,22 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { PasswordInput } from "@/components/ui/password-input";
 import { Label } from "@/components/ui/label";
-import { Skeleton } from "@/components/ui/skeleton";
+import { PasswordInput } from "@/components/ui/password-input";
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import { PaginatedTableShell } from "@/components/tables/paginated-table-shell";
+  EMPTY_USER_LIST_FILTERS,
+  UsersFilterBar,
+  type UserListFilterValues,
+} from "@/components/admin/users-filter-bar";
+import type { Crumb } from "@/components/layout/page-header";
+import { PageHeader } from "@/components/layout/page-header";
+import { AppDataGrid } from "@/components/tables/app-data-grid";
 import { isPaginatedList } from "@/lib/api/paginated-list";
 import { DEFAULT_TABLE_PAGE_SIZE } from "@/hooks/use-client-pagination";
 import { cn } from "@/lib/utils";
+import IconButton from "@mui/material/IconButton";
+import Stack from "@mui/material/Stack";
+import { type GridColDef } from "@mui/x-data-grid";
 import { Pencil, Plus, Trash2 } from "lucide-react";
 import * as React from "react";
 
@@ -40,7 +41,17 @@ type UserRow = {
   status?: UserStatus;
 };
 
-export function UsersAdminClient() {
+type UserGridRow = UserRow & { id: string };
+
+export function UsersAdminClient({
+  title,
+  description,
+  crumbs,
+}: {
+  title: string;
+  description: string;
+  crumbs: Crumb[];
+}) {
   const [loading, setLoading] = React.useState(true);
   const [rows, setRows] = React.useState<UserRow[]>([]);
   const [listError, setListError] = React.useState<string | null>(null);
@@ -51,6 +62,13 @@ export function UsersAdminClient() {
   const [userToDelete, setUserToDelete] = React.useState<UserRow | null>(null);
   const [deleteLoading, setDeleteLoading] = React.useState(false);
 
+  const [searchInput, setSearchInput] = React.useState("");
+  const [debouncedSearch, setDebouncedSearch] = React.useState("");
+  const [appliedFilters, setAppliedFilters] =
+    React.useState<UserListFilterValues>(() => ({
+      ...EMPTY_USER_LIST_FILTERS,
+    }));
+
   const [listPage, setListPage] = React.useState(1);
   const [listMeta, setListMeta] = React.useState<{
     total: number;
@@ -59,39 +77,65 @@ export function UsersAdminClient() {
     totalPages: number;
   } | null>(null);
 
-  const fetchPage = React.useCallback(async (page: number) => {
-    setLoading(true);
-    setListError(null);
-    try {
-      const qs = new URLSearchParams({
-        page: String(page),
-        limit: String(DEFAULT_TABLE_PAGE_SIZE),
-      });
-      const res = await fetch(`/api/users?${qs}`, { cache: "no-store" });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        setListError(data?.message ?? "Failed to load users");
-        setRows([]);
-        setListMeta(null);
-      } else if (isPaginatedList<UserRow>(data)) {
-        setRows(data.data);
-        setListMeta(data.meta);
-        if (data.meta.page !== page) {
-          setListPage(data.meta.page);
+  const fetchPage = React.useCallback(
+    async (page: number, search: string, fv: UserListFilterValues) => {
+      setLoading(true);
+      setListError(null);
+      try {
+        const qs = new URLSearchParams({
+          page: String(page),
+          limit: String(DEFAULT_TABLE_PAGE_SIZE),
+        });
+        if (search) qs.set("search", search);
+        if (fv.role) qs.set("role", fv.role);
+        if (fv.status) qs.set("status", fv.status);
+        const res = await fetch(`/api/users?${qs}`, { cache: "no-store" });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          setListError(
+            Array.isArray(data?.message)
+              ? data.message.join(", ")
+              : data?.message ?? "Failed to load users",
+          );
+          setRows([]);
+          setListMeta(null);
+        } else if (isPaginatedList<UserRow>(data)) {
+          setRows(data.data);
+          setListMeta(data.meta);
+          if (data.meta.page !== page) {
+            setListPage(data.meta.page);
+          }
+        } else {
+          setListError("Invalid users response");
+          setRows([]);
+          setListMeta(null);
         }
-      } else {
-        setListError("Invalid users response");
-        setRows([]);
-        setListMeta(null);
+      } finally {
+        setLoading(false);
       }
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+    },
+    [],
+  );
+
+  const skipSearchPageReset = React.useRef(true);
+  React.useEffect(() => {
+    const id = window.setTimeout(() => {
+      setDebouncedSearch(searchInput.trim());
+    }, 400);
+    return () => window.clearTimeout(id);
+  }, [searchInput]);
 
   React.useEffect(() => {
-    void fetchPage(listPage);
-  }, [listPage, fetchPage]);
+    if (skipSearchPageReset.current) {
+      skipSearchPageReset.current = false;
+      return;
+    }
+    setListPage(1);
+  }, [debouncedSearch]);
+
+  React.useEffect(() => {
+    void fetchPage(listPage, debouncedSearch, appliedFilters);
+  }, [listPage, debouncedSearch, appliedFilters, fetchPage]);
 
   function closeDialog() {
     setFormError(null);
@@ -130,7 +174,11 @@ export function UsersAdminClient() {
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        setFormError(data?.message ?? "Update failed");
+        setFormError(
+          Array.isArray(data?.message)
+            ? data.message.join(", ")
+            : data?.message ?? "Update failed",
+        );
         return;
       }
     } else {
@@ -153,13 +201,17 @@ export function UsersAdminClient() {
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        setFormError(data?.message ?? "Create failed");
+        setFormError(
+          Array.isArray(data?.message)
+            ? data.message.join(", ")
+            : data?.message ?? "Create failed",
+        );
         return;
       }
     }
 
     closeDialog();
-    await fetchPage(listPage);
+    await fetchPage(listPage, debouncedSearch, appliedFilters);
   }
 
   async function confirmDelete() {
@@ -172,11 +224,15 @@ export function UsersAdminClient() {
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        setListError(data?.message ?? "Delete failed");
+        setListError(
+          Array.isArray(data?.message)
+            ? data.message.join(", ")
+            : data?.message ?? "Delete failed",
+        );
         return;
       }
       setUserToDelete(null);
-      await fetchPage(listPage);
+      await fetchPage(listPage, debouncedSearch, appliedFilters);
     } finally {
       setDeleteLoading(false);
     }
@@ -185,167 +241,251 @@ export function UsersAdminClient() {
   const pageTotal = listMeta?.total ?? 0;
   const shellPage = listMeta?.page ?? listPage;
   const limit = listMeta?.limit ?? DEFAULT_TABLE_PAGE_SIZE;
-  const pageCount = listMeta?.totalPages ?? 1;
-  const rangeFrom = pageTotal === 0 ? 0 : (shellPage - 1) * limit + 1;
-  const rangeTo = Math.min(shellPage * limit, pageTotal);
+
+  const gridRows = React.useMemo<UserGridRow[]>(
+    () => rows.map((u) => ({ ...u, id: u._id })),
+    [rows],
+  );
+
+  const columns = React.useMemo<GridColDef<UserGridRow>[]>(
+    () => [
+      {
+        field: "actions",
+        headerName: "Actions",
+        sortable: false,
+        filterable: false,
+        disableColumnMenu: true,
+        width: 104,
+        align: "center",
+        headerAlign: "center",
+        renderCell: (params) => (
+          <Stack direction="row" spacing={0.25} justifyContent="center">
+            <IconButton
+              size="small"
+              aria-label="Edit user"
+              onClick={() => {
+                setEditing(params.row);
+                setOpen(true);
+              }}
+            >
+              <Pencil className="size-4" />
+            </IconButton>
+            <IconButton
+              size="small"
+              color="error"
+              aria-label="Delete user"
+              onClick={() => setUserToDelete(params.row)}
+            >
+              <Trash2 className="size-4" />
+            </IconButton>
+          </Stack>
+        ),
+      },
+      { field: "name", headerName: "Name", flex: 0.65, minWidth: 120 },
+      { field: "email", headerName: "Email", flex: 0.85, minWidth: 160 },
+      { field: "username", headerName: "Username", flex: 0.55, minWidth: 110 },
+      {
+        field: "contact",
+        headerName: "Contact",
+        flex: 0.55,
+        minWidth: 100,
+      },
+      {
+        field: "role",
+        headerName: "Role",
+        width: 120,
+        renderCell: (params) => (
+          <span className="capitalize">{String(params.value ?? "")}</span>
+        ),
+      },
+      {
+        field: "status",
+        headerName: "Status",
+        width: 100,
+        renderCell: (params) => (
+          <span className="capitalize">
+            {String(params.value ?? "active")}
+          </span>
+        ),
+      },
+    ],
+    [],
+  );
 
   return (
-    <div className="space-y-4">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h2 className="text-lg font-semibold text-foreground">Users</h2>
-          <p className="text-sm text-muted-foreground">
-            Superadmin can add admins and moderators.
-          </p>
-        </div>
-
-        <Dialog
-          open={open}
-          onOpenChange={(next) => {
-            setOpen(next);
-            if (!next) setEditing(null);
-            else setFormError(null);
-          }}
-        >
-          <DialogTrigger
-            render={
-              <Button
-                className="rounded-xl shadow-sm"
-                type="button"
-                onClick={() => setEditing(null)}
-              />
-            }
+    <div className="space-y-8">
+      <PageHeader
+        title={title}
+        description={description}
+        crumbs={crumbs}
+        actionsBesideTitle
+        actions={
+          <Dialog
+            open={open}
+            onOpenChange={(next) => {
+              setOpen(next);
+              if (!next) setEditing(null);
+              else setFormError(null);
+            }}
           >
-            <Plus className="size-4" />
-            Add user
-          </DialogTrigger>
-          <DialogContent className="rounded-2xl">
-            <DialogHeader>
-              <DialogTitle>{editing ? "Edit user" : "Add user"}</DialogTitle>
-              <DialogDescription>
-                {editing
-                  ? "Update profile, role, status, or set a new password."
-                  : "Create a new system user with the right role and status."}
-              </DialogDescription>
-            </DialogHeader>
-            <form
-              key={editing?._id ?? "create"}
-              className="space-y-4"
-              onSubmit={onSave}
-            >
-              <div className="grid gap-4 sm:grid-cols-2">
-                <div className="space-y-2">
-                  <Label htmlFor="name">Name</Label>
-                  <Input
-                    id="name"
-                    name="name"
-                    required
-                    defaultValue={editing?.name ?? ""}
-                    className="h-10 rounded-xl"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="contact">Contact</Label>
-                  <Input
-                    id="contact"
-                    name="contact"
-                    required
-                    defaultValue={editing?.contact ?? ""}
-                    className="h-10 rounded-xl"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="email">Email</Label>
-                  <Input
-                    id="email"
-                    name="email"
-                    type="email"
-                    required
-                    defaultValue={editing?.email ?? ""}
-                    className="h-10 rounded-xl"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="username">Username</Label>
-                  <Input
-                    id="username"
-                    name="username"
-                    required
-                    defaultValue={editing?.username ?? ""}
-                    className="h-10 rounded-xl"
-                  />
-                </div>
-                <div className="space-y-2 sm:col-span-2">
-                  <Label htmlFor="password">
-                    Password{" "}
-                    {editing ? (
-                      <span className="font-normal text-muted-foreground">
-                        (leave blank to keep current)
-                      </span>
-                    ) : null}
-                  </Label>
-                  <PasswordInput
-                    id="password"
-                    name="password"
-                    required={!editing}
-                    autoComplete="new-password"
-                    className="h-10 rounded-xl"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="role">Role</Label>
-                  <select
-                    id="role"
-                    name="role"
-                    defaultValue={editing?.role ?? "moderator"}
-                    className={cn(
-                      "h-10 w-full rounded-xl border border-input bg-background px-3 text-sm",
-                    )}
-                  >
-                    <option value="moderator">Moderator</option>
-                    <option value="admin">Admin</option>
-                    <option value="superadmin">Superadmin</option>
-                  </select>
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="status">Status</Label>
-                  <select
-                    id="status"
-                    name="status"
-                    defaultValue={editing?.status ?? "active"}
-                    className={cn(
-                      "h-10 w-full rounded-xl border border-input bg-background px-3 text-sm",
-                    )}
-                  >
-                    <option value="active">Active</option>
-                    <option value="inactive">Inactive</option>
-                    <option value="deleted">Deleted</option>
-                  </select>
-                </div>
-              </div>
-
-              {formError ? (
-                <p className="rounded-xl border border-destructive/25 bg-destructive/10 px-3 py-2 text-sm text-destructive">
-                  {formError}
-                </p>
-              ) : null}
-
-              <div className="flex justify-end gap-2">
+            <DialogTrigger
+              render={
                 <Button
+                  className="rounded-xl shadow-sm"
                   type="button"
-                  variant="outline"
-                  className="rounded-xl"
-                  onClick={closeDialog}
-                >
-                  Cancel
-                </Button>
-                <Button type="submit" className="rounded-xl shadow-sm">
-                  {editing ? "Save changes" : "Create"}
-                </Button>
-              </div>
-            </form>
-          </DialogContent>
-        </Dialog>
+                  onClick={() => setEditing(null)}
+                />
+              }
+            >
+              <Plus className="size-4" />
+              Add user
+            </DialogTrigger>
+            <DialogContent className="rounded-2xl">
+              <DialogHeader>
+                <DialogTitle>{editing ? "Edit user" : "Add user"}</DialogTitle>
+                <DialogDescription>
+                  {editing
+                    ? "Update profile, role, status, or set a new password."
+                    : "Create a new system user with the right role and status."}
+                </DialogDescription>
+              </DialogHeader>
+              <form
+                key={editing?._id ?? "create"}
+                className="space-y-4"
+                onSubmit={onSave}
+              >
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label htmlFor="name">Name</Label>
+                    <Input
+                      id="name"
+                      name="name"
+                      required
+                      defaultValue={editing?.name ?? ""}
+                      className="h-10 rounded-xl"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="contact">Contact</Label>
+                    <Input
+                      id="contact"
+                      name="contact"
+                      required
+                      defaultValue={editing?.contact ?? ""}
+                      className="h-10 rounded-xl"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="email">Email</Label>
+                    <Input
+                      id="email"
+                      name="email"
+                      type="email"
+                      required
+                      defaultValue={editing?.email ?? ""}
+                      className="h-10 rounded-xl"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="username">Username</Label>
+                    <Input
+                      id="username"
+                      name="username"
+                      required
+                      defaultValue={editing?.username ?? ""}
+                      className="h-10 rounded-xl"
+                    />
+                  </div>
+                  <div className="space-y-2 sm:col-span-2">
+                    <Label htmlFor="password">
+                      Password{" "}
+                      {editing ? (
+                        <span className="font-normal text-muted-foreground">
+                          (leave blank to keep current)
+                        </span>
+                      ) : null}
+                    </Label>
+                    <PasswordInput
+                      id="password"
+                      name="password"
+                      required={!editing}
+                      autoComplete="new-password"
+                      className="h-10 rounded-xl"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="role">Role</Label>
+                    <select
+                      id="role"
+                      name="role"
+                      defaultValue={editing?.role ?? "moderator"}
+                      className={cn(
+                        "h-10 w-full rounded-xl border border-input bg-background px-3 text-sm",
+                      )}
+                    >
+                      <option value="moderator">Moderator</option>
+                      <option value="admin">Admin</option>
+                      <option value="superadmin">Superadmin</option>
+                    </select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="status">Status</Label>
+                    <select
+                      id="status"
+                      name="status"
+                      defaultValue={editing?.status ?? "active"}
+                      className={cn(
+                        "h-10 w-full rounded-xl border border-input bg-background px-3 text-sm",
+                      )}
+                    >
+                      <option value="active">Active</option>
+                      <option value="inactive">Inactive</option>
+                      <option value="deleted">Deleted</option>
+                    </select>
+                  </div>
+                </div>
+
+                {formError ? (
+                  <p className="rounded-xl border border-destructive/25 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+                    {formError}
+                  </p>
+                ) : null}
+
+                <div className="flex justify-end gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="rounded-xl"
+                    onClick={closeDialog}
+                  >
+                    Cancel
+                  </Button>
+                  <Button type="submit" className="rounded-xl shadow-sm">
+                    {editing ? "Save changes" : "Create"}
+                  </Button>
+                </div>
+              </form>
+            </DialogContent>
+          </Dialog>
+        }
+      />
+
+      <div className="space-y-4">
+        <UsersFilterBar
+          search={searchInput}
+          onSearchChange={setSearchInput}
+          appliedFilters={appliedFilters}
+          onApplyFilters={(next) => {
+            setAppliedFilters(next);
+            setListPage(1);
+          }}
+          onClearAll={() => {
+            setSearchInput("");
+            setDebouncedSearch("");
+            setAppliedFilters({ ...EMPTY_USER_LIST_FILTERS });
+            setListPage(1);
+          }}
+        />
 
         <Dialog
           open={userToDelete !== null}
@@ -390,97 +530,28 @@ export function UsersAdminClient() {
             </div>
           </DialogContent>
         </Dialog>
+
+        {listError ? (
+          <p className="rounded-xl border border-destructive/25 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+            {listError}
+          </p>
+        ) : null}
+
+        <AppDataGrid
+          rows={gridRows}
+          columns={columns}
+          loading={loading}
+          rowCount={pageTotal}
+          paginationModel={{
+            page: Math.max(0, shellPage - 1),
+            pageSize: limit,
+          }}
+          onPaginationModelChange={(model) => {
+            setListPage(model.page + 1);
+          }}
+          noRowsLabel="No users found."
+        />
       </div>
-
-      {listError ? (
-        <p className="rounded-xl border border-destructive/25 bg-destructive/10 px-3 py-2 text-sm text-destructive">
-          {listError}
-        </p>
-      ) : null}
-
-      {loading ? (
-        <div className="space-y-2">
-          <Skeleton className="h-10 rounded-xl" />
-          <Skeleton className="h-10 rounded-xl" />
-          <Skeleton className="h-10 rounded-xl" />
-        </div>
-      ) : (
-        <PaginatedTableShell
-          page={shellPage}
-          setPage={setListPage}
-          pageCount={pageCount}
-          total={pageTotal}
-          rangeFrom={rangeFrom}
-          rangeTo={rangeTo}
-        >
-          <Table>
-            <TableHeader>
-              <TableRow className="hover:bg-transparent">
-                <TableHead className="w-[100px]">Actions</TableHead>
-                <TableHead>Name</TableHead>
-                <TableHead>Email</TableHead>
-                <TableHead>Username</TableHead>
-                <TableHead>Contact</TableHead>
-                <TableHead className="w-[120px]">Role</TableHead>
-                <TableHead className="w-[110px]">Status</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {rows.map((u) => (
-                <TableRow key={u._id}>
-                  <TableCell>
-                    <div className="inline-flex items-center gap-1">
-                      <Button
-                        type="button"
-                        size="icon-sm"
-                        variant="outline"
-                        className="rounded-xl"
-                        onClick={() => {
-                          setEditing(u);
-                          setOpen(true);
-                        }}
-                        aria-label="Edit user"
-                      >
-                        <Pencil className="size-4" />
-                      </Button>
-                      <Button
-                        type="button"
-                        size="icon-sm"
-                        variant="outline"
-                        className="rounded-xl"
-                        onClick={() => setUserToDelete(u)}
-                        aria-label="Delete user"
-                      >
-                        <Trash2 className="size-4 text-destructive" />
-                      </Button>
-                    </div>
-                  </TableCell>
-                  <TableCell className="font-medium">{u.name}</TableCell>
-                  <TableCell className="text-muted-foreground">{u.email}</TableCell>
-                  <TableCell>{u.username}</TableCell>
-                  <TableCell className="text-muted-foreground">{u.contact}</TableCell>
-                  <TableCell className="capitalize text-muted-foreground">
-                    {u.role}
-                  </TableCell>
-                  <TableCell className="capitalize text-muted-foreground">
-                    {u.status ?? "active"}
-                  </TableCell>
-                </TableRow>
-              ))}
-              {pageTotal === 0 ? (
-                <TableRow>
-                  <TableCell
-                    colSpan={7}
-                    className="h-24 text-center text-sm text-muted-foreground"
-                  >
-                    No users found.
-                  </TableCell>
-                </TableRow>
-              ) : null}
-            </TableBody>
-          </Table>
-        </PaginatedTableShell>
-      )}
     </div>
   );
 }

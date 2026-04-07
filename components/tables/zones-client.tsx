@@ -11,30 +11,32 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Skeleton } from "@/components/ui/skeleton";
+import type { DepartmentSelectOption } from "@/components/branches/department-searchable-select";
+import type { Crumb } from "@/components/layout/page-header";
+import { PageHeader } from "@/components/layout/page-header";
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import { PaginatedTableShell } from "@/components/tables/paginated-table-shell";
+  EMPTY_ZONE_LIST_FILTERS,
+  ZonesFilterBar,
+  type ZoneListFilterValues,
+} from "@/components/zones/zones-filter-bar";
+import { AppDataGrid } from "@/components/tables/app-data-grid";
+import IconButton from "@mui/material/IconButton";
+import Stack from "@mui/material/Stack";
+import { type GridColDef } from "@mui/x-data-grid";
 import { isPaginatedList } from "@/lib/api/paginated-list";
 import { DEFAULT_TABLE_PAGE_SIZE } from "@/hooks/use-client-pagination";
 import { cn } from "@/lib/utils";
 import { Pencil, Plus, Trash2 } from "lucide-react";
 import * as React from "react";
 
-type DeptOption = {
+type PopulatedDept = { _id: string; name: string; code: string };
+
+type DeptListRow = {
   _id: string;
   name: string;
   code: string;
   status?: string;
 };
-
-type PopulatedDept = { _id: string; name: string; code: string };
 
 type ZoneRow = {
   _id: string;
@@ -43,6 +45,8 @@ type ZoneRow = {
   departmentId: PopulatedDept | string;
   status: "active" | "inactive" | "deleted";
 };
+
+type ZoneGridRow = ZoneRow & { id: string; departmentDisplay: string };
 
 function departmentLabel(z: ZoneRow): string {
   const d = z.departmentId;
@@ -62,10 +66,53 @@ function departmentIdValue(z: ZoneRow): string {
 
 const DEPARTMENT_SELECT_PAGE_LIMIT = 500;
 
-export function ZonesClient({ canManage }: { canManage: boolean }) {
+async function fetchDepartmentsForZones(): Promise<DepartmentSelectOption[]> {
+  const qs = new URLSearchParams({
+    page: "1",
+    limit: String(DEPARTMENT_SELECT_PAGE_LIMIT),
+  });
+  const res = await fetch(`/api/publicity-departments?${qs}`, {
+    cache: "no-store",
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok || !isPaginatedList<DeptListRow>(data)) {
+    return [];
+  }
+  return data.data
+    .filter((d) => d.status !== "deleted")
+    .map((d) => ({
+      _id: d._id,
+      name: d.name,
+      code: d.code,
+    }));
+}
+
+export function ZonesClient({
+  canManage,
+  title,
+  description,
+  crumbs,
+}: {
+  canManage: boolean;
+  title: string;
+  description: string;
+  crumbs: Crumb[];
+}) {
   const [loading, setLoading] = React.useState(true);
   const [rows, setRows] = React.useState<ZoneRow[]>([]);
-  const [departments, setDepartments] = React.useState<DeptOption[]>([]);
+  const [departments, setDepartments] = React.useState<DepartmentSelectOption[]>(
+    [],
+  );
+  const [departmentsLoading, setDepartmentsLoading] = React.useState(true);
+  const [departmentsFetchError, setDepartmentsFetchError] = React.useState<
+    string | null
+  >(null);
+  const [searchInput, setSearchInput] = React.useState("");
+  const [debouncedSearch, setDebouncedSearch] = React.useState("");
+  const [appliedFilters, setAppliedFilters] =
+    React.useState<ZoneListFilterValues>(() => ({
+      ...EMPTY_ZONE_LIST_FILTERS,
+    }));
   const [error, setError] = React.useState<string | null>(null);
   const [formError, setFormError] = React.useState<string | null>(null);
 
@@ -82,60 +129,81 @@ export function ZonesClient({ canManage }: { canManage: boolean }) {
     totalPages: number;
   } | null>(null);
 
-  const fetchZonesPage = React.useCallback(async (page: number) => {
-    setLoading(true);
-    setError(null);
-    try {
-      const qs = new URLSearchParams({
-        page: String(page),
-        limit: String(DEFAULT_TABLE_PAGE_SIZE),
-      });
-      const res = await fetch(`/api/zones?${qs}`, { cache: "no-store" });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        setError(data?.message ?? "Failed to load zones");
-        setRows([]);
-        setListMeta(null);
-      } else if (isPaginatedList<ZoneRow>(data)) {
-        setRows(data.data);
-        setListMeta(data.meta);
-        if (data.meta.page !== page) {
-          setListPage(data.meta.page);
+  const fetchZonesPage = React.useCallback(
+    async (page: number, search: string, fv: ZoneListFilterValues) => {
+      setLoading(true);
+      setError(null);
+      try {
+        const qs = new URLSearchParams({
+          page: String(page),
+          limit: String(DEFAULT_TABLE_PAGE_SIZE),
+        });
+        if (search) qs.set("search", search);
+        if (fv.departmentId) qs.set("departmentId", fv.departmentId);
+        if (fv.status) qs.set("status", fv.status);
+        const res = await fetch(`/api/zones?${qs}`, { cache: "no-store" });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          setError(
+            Array.isArray(data?.message)
+              ? data.message.join(", ")
+              : data?.message ?? "Failed to load zones",
+          );
+          setRows([]);
+          setListMeta(null);
+        } else if (isPaginatedList<ZoneRow>(data)) {
+          setRows(data.data);
+          setListMeta(data.meta);
+          if (data.meta.page !== page) {
+            setListPage(data.meta.page);
+          }
+        } else {
+          setError("Invalid zones response");
+          setRows([]);
+          setListMeta(null);
         }
-      } else {
-        setError("Invalid zones response");
-        setRows([]);
-        setListMeta(null);
+      } finally {
+        setLoading(false);
       }
-    } finally {
-      setLoading(false);
+    },
+    [],
+  );
+
+  const skipSearchPageReset = React.useRef(true);
+  React.useEffect(() => {
+    const id = window.setTimeout(() => {
+      setDebouncedSearch(searchInput.trim());
+    }, 400);
+    return () => window.clearTimeout(id);
+  }, [searchInput]);
+
+  React.useEffect(() => {
+    if (skipSearchPageReset.current) {
+      skipSearchPageReset.current = false;
+      return;
     }
-  }, []);
+    setListPage(1);
+  }, [debouncedSearch]);
 
   React.useEffect(() => {
-    void fetchZonesPage(listPage);
-  }, [listPage, fetchZonesPage]);
+    void fetchZonesPage(listPage, debouncedSearch, appliedFilters);
+  }, [listPage, debouncedSearch, appliedFilters, fetchZonesPage]);
 
   React.useEffect(() => {
-    if (!canManage) return;
     void (async () => {
-      const qs = new URLSearchParams({
-        page: "1",
-        limit: String(DEPARTMENT_SELECT_PAGE_LIMIT),
-      });
-      const res = await fetch(`/api/publicity-departments?${qs}`, {
-        cache: "no-store",
-      });
-      const data = await res.json().catch(() => ({}));
-      if (res.ok && isPaginatedList<DeptOption>(data)) {
-        setDepartments(
-          data.data.filter(
-            (d: DeptOption) => d.status !== "deleted",
-          ) as DeptOption[],
-        );
+      setDepartmentsLoading(true);
+      setDepartmentsFetchError(null);
+      try {
+        const list = await fetchDepartmentsForZones();
+        setDepartments(list);
+      } catch {
+        setDepartments([]);
+        setDepartmentsFetchError("Could not load departments.");
+      } finally {
+        setDepartmentsLoading(false);
       }
     })();
-  }, [canManage]);
+  }, []);
 
   function closeForm() {
     setFormError(null);
@@ -179,7 +247,7 @@ export function ZonesClient({ canManage }: { canManage: boolean }) {
     }
 
     closeForm();
-    await fetchZonesPage(listPage);
+    await fetchZonesPage(listPage, debouncedSearch, appliedFilters);
   }
 
   async function confirmDelete() {
@@ -196,151 +264,225 @@ export function ZonesClient({ canManage }: { canManage: boolean }) {
         return;
       }
       setZoneToDelete(null);
-      await fetchZonesPage(listPage);
+      await fetchZonesPage(listPage, debouncedSearch, appliedFilters);
     } finally {
       setDeleteLoading(false);
     }
   }
 
-  const colCount = canManage ? 5 : 4;
-
   const pageTotal = listMeta?.total ?? 0;
   const shellPage = listMeta?.page ?? listPage;
   const limit = listMeta?.limit ?? DEFAULT_TABLE_PAGE_SIZE;
-  const pageCount = listMeta?.totalPages ?? 1;
-  const rangeFrom = pageTotal === 0 ? 0 : (shellPage - 1) * limit + 1;
-  const rangeTo = Math.min(shellPage * limit, pageTotal);
+
+  const gridRows = React.useMemo<ZoneGridRow[]>(
+    () =>
+      rows.map((z) => ({
+        ...z,
+        id: z._id,
+        departmentDisplay: departmentLabel(z),
+      })),
+    [rows],
+  );
+
+  const columns = React.useMemo<GridColDef<ZoneGridRow>[]>(() => {
+    const cols: GridColDef<ZoneGridRow>[] = [];
+    if (canManage) {
+      cols.push({
+        field: "actions",
+        headerName: "Actions",
+        sortable: false,
+        filterable: false,
+        disableColumnMenu: true,
+        width: 104,
+        align: "center",
+        headerAlign: "center",
+        renderCell: (params) => (
+          <Stack direction="row" spacing={0.25} justifyContent="center">
+            <IconButton
+              size="small"
+              aria-label="Edit zone"
+              onClick={() => {
+                setEdit(params.row);
+                setOpen(true);
+              }}
+            >
+              <Pencil className="size-4" />
+            </IconButton>
+            <IconButton
+              size="small"
+              color="error"
+              aria-label="Delete zone"
+              onClick={() => setZoneToDelete(params.row)}
+            >
+              <Trash2 className="size-4" />
+            </IconButton>
+          </Stack>
+        ),
+      });
+    }
+    cols.push(
+      { field: "name", headerName: "Name", flex: 1, minWidth: 120 },
+      { field: "zoneNumber", headerName: "Number", width: 100 },
+      {
+        field: "departmentDisplay",
+        headerName: "Department",
+        flex: 0.85,
+        minWidth: 140,
+      },
+      {
+        field: "status",
+        headerName: "Status",
+        width: 110,
+        renderCell: (params) => (
+          <span className="capitalize">{String(params.value ?? "")}</span>
+        ),
+      },
+    );
+    return cols;
+  }, [canManage]);
 
   return (
-    <div className="space-y-4">
-      {canManage ? (
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <h2 className="text-lg font-semibold text-foreground">All zones</h2>
-            <p className="text-sm text-muted-foreground">
-              Link each zone to a publicity department.
-            </p>
-          </div>
-
-          <Dialog
-            open={open}
-            onOpenChange={(next) => {
-              setOpen(next);
-              if (!next) setEdit(null);
-              else setFormError(null);
-            }}
-          >
-            <DialogTrigger
-              render={
-                <Button
-                  className="rounded-xl shadow-sm"
-                  type="button"
-                  onClick={() => setEdit(null)}
-                />
-              }
+    <div className="space-y-8">
+      <PageHeader
+        title={title}
+        description={description}
+        crumbs={crumbs}
+        actionsBesideTitle={canManage}
+        actions={
+          canManage ? (
+            <Dialog
+              open={open}
+              onOpenChange={(next) => {
+                setOpen(next);
+                if (!next) setEdit(null);
+                else setFormError(null);
+              }}
             >
-              <Plus className="size-4" />
-              Add zone
-            </DialogTrigger>
-            <DialogContent className="rounded-2xl">
-              <DialogHeader>
-                <DialogTitle>{edit ? "Edit zone" : "Add zone"}</DialogTitle>
-                <DialogDescription>
-                  Zone number is not auto-generated (e.g. 1, 1A, 2).
-                </DialogDescription>
-              </DialogHeader>
-              <form
-                key={edit?._id ?? "create"}
-                className="space-y-4"
-                onSubmit={onSave}
-              >
-                <div className="space-y-2">
-                  <Label htmlFor="zone-name">Zone Name</Label>
-                  <Input
-                    id="zone-name"
-                    name="name"
-                    required
-                    defaultValue={edit?.name ?? ""}
-                    className="h-10 rounded-xl"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="zoneNumber">Zone Number</Label>
-                  <Input
-                    id="zoneNumber"
-                    name="zoneNumber"
-                    required
-                    defaultValue={edit?.zoneNumber ?? ""}
-                    placeholder="e.g. 1, 1A, 2"
-                    className="h-10 rounded-xl"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="departmentId">Department</Label>
-                  <select
-                    id="departmentId"
-                    name="departmentId"
-                    required
-                    defaultValue={
-                      edit ? departmentIdValue(edit) : undefined
-                    }
-                    className={cn(
-                      "h-10 w-full rounded-xl border border-input bg-background px-3 text-sm",
-                    )}
-                  >
-                    <option value="">Select department</option>
-                    {departments.map((d) => (
-                      <option key={d._id} value={d._id}>
-                        {d.name} ({d.code})
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="zone-status">Status</Label>
-                  <select
-                    id="zone-status"
-                    name="status"
-                    defaultValue={edit?.status ?? "active"}
-                    className={cn(
-                      "h-10 w-full rounded-xl border border-input bg-background px-3 text-sm",
-                    )}
-                  >
-                    <option value="active">Active</option>
-                    <option value="inactive">Inactive</option>
-                    <option value="deleted">Deleted</option>
-                  </select>
-                </div>
-                {formError ? (
-                  <p className="rounded-xl border border-destructive/25 bg-destructive/10 px-3 py-2 text-sm text-destructive">
-                    {formError}
-                  </p>
-                ) : null}
-                <div className="flex justify-end gap-2">
+              <DialogTrigger
+                render={
                   <Button
+                    className="rounded-xl shadow-sm"
                     type="button"
-                    variant="outline"
-                    className="rounded-xl"
-                    onClick={closeForm}
-                  >
-                    Cancel
-                  </Button>
-                  <Button type="submit" className="rounded-xl shadow-sm">
-                    Save
-                  </Button>
-                </div>
-              </form>
-            </DialogContent>
-          </Dialog>
-        </div>
-      ) : (
-        <div>
-          <h2 className="text-lg font-semibold text-foreground">All zones</h2>
-          <p className="text-sm text-muted-foreground">
-            Read-only list. Superadmins can add and edit zones.
-          </p>
-        </div>
-      )}
+                    onClick={() => setEdit(null)}
+                  />
+                }
+              >
+                <Plus className="size-4" />
+                Add zone
+              </DialogTrigger>
+              <DialogContent className="rounded-2xl">
+                <DialogHeader>
+                  <DialogTitle>{edit ? "Edit zone" : "Add zone"}</DialogTitle>
+                  <DialogDescription>
+                    Zone number is not auto-generated (e.g. 1, 1A, 2).
+                  </DialogDescription>
+                </DialogHeader>
+                <form
+                  key={edit?._id ?? "create"}
+                  className="space-y-4"
+                  onSubmit={onSave}
+                >
+                  <div className="space-y-2">
+                    <Label htmlFor="zone-name">Zone Name</Label>
+                    <Input
+                      id="zone-name"
+                      name="name"
+                      required
+                      defaultValue={edit?.name ?? ""}
+                      className="h-10 rounded-xl"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="zoneNumber">Zone Number</Label>
+                    <Input
+                      id="zoneNumber"
+                      name="zoneNumber"
+                      required
+                      defaultValue={edit?.zoneNumber ?? ""}
+                      placeholder="e.g. 1, 1A, 2"
+                      className="h-10 rounded-xl"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="departmentId">Department</Label>
+                    <select
+                      id="departmentId"
+                      name="departmentId"
+                      required
+                      defaultValue={
+                        edit ? departmentIdValue(edit) : undefined
+                      }
+                      className={cn(
+                        "h-10 w-full rounded-xl border border-input bg-background px-3 text-sm",
+                      )}
+                    >
+                      <option value="">Select department</option>
+                      {departments.map((d) => (
+                        <option key={d._id} value={d._id}>
+                          {d.name} ({d.code})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="zone-status">Status</Label>
+                    <select
+                      id="zone-status"
+                      name="status"
+                      defaultValue={edit?.status ?? "active"}
+                      className={cn(
+                        "h-10 w-full rounded-xl border border-input bg-background px-3 text-sm",
+                      )}
+                    >
+                      <option value="active">Active</option>
+                      <option value="inactive">Inactive</option>
+                      <option value="deleted">Deleted</option>
+                    </select>
+                  </div>
+                  {formError ? (
+                    <p className="rounded-xl border border-destructive/25 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+                      {formError}
+                    </p>
+                  ) : null}
+                  <div className="flex justify-end gap-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="rounded-xl"
+                      onClick={closeForm}
+                    >
+                      Cancel
+                    </Button>
+                    <Button type="submit" className="rounded-xl shadow-sm">
+                      Save
+                    </Button>
+                  </div>
+                </form>
+              </DialogContent>
+            </Dialog>
+          ) : null
+        }
+      />
+
+      <div className="space-y-4">
+        <ZonesFilterBar
+          search={searchInput}
+          onSearchChange={setSearchInput}
+          appliedFilters={appliedFilters}
+          onApplyFilters={(next) => {
+            setAppliedFilters(next);
+            setListPage(1);
+          }}
+          onClearAll={() => {
+            setSearchInput("");
+            setDebouncedSearch("");
+            setAppliedFilters({ ...EMPTY_ZONE_LIST_FILTERS });
+            setListPage(1);
+          }}
+          departments={departments}
+          departmentsLoading={departmentsLoading}
+          departmentsFetchError={departmentsFetchError}
+        />
 
       {canManage ? (
         <Dialog
@@ -393,88 +535,21 @@ export function ZonesClient({ canManage }: { canManage: boolean }) {
         </p>
       ) : null}
 
-      {loading ? (
-        <div className="space-y-2">
-          <Skeleton className="h-10 rounded-xl" />
-          <Skeleton className="h-10 rounded-xl" />
-        </div>
-      ) : (
-        <PaginatedTableShell
-          page={shellPage}
-          setPage={setListPage}
-          pageCount={pageCount}
-          total={pageTotal}
-          rangeFrom={rangeFrom}
-          rangeTo={rangeTo}
-        >
-          <Table>
-            <TableHeader>
-              <TableRow className="hover:bg-transparent">
-                {canManage ? (
-                  <TableHead className="w-[100px]">Actions</TableHead>
-                ) : null}
-                <TableHead>Name</TableHead>
-                <TableHead className="w-[120px]">Number</TableHead>
-                <TableHead>Department</TableHead>
-                <TableHead className="w-[110px]">Status</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {rows.map((z) => (
-                <TableRow key={z._id}>
-                  {canManage ? (
-                    <TableCell>
-                      <div className="inline-flex items-center gap-1">
-                        <Button
-                          type="button"
-                          size="icon-sm"
-                          variant="outline"
-                          className="rounded-xl"
-                          onClick={() => {
-                            setEdit(z);
-                            setOpen(true);
-                          }}
-                          aria-label="Edit zone"
-                        >
-                          <Pencil className="size-4" />
-                        </Button>
-                        <Button
-                          type="button"
-                          size="icon-sm"
-                          variant="outline"
-                          className="rounded-xl"
-                          onClick={() => setZoneToDelete(z)}
-                          aria-label="Delete zone"
-                        >
-                          <Trash2 className="size-4 text-destructive" />
-                        </Button>
-                      </div>
-                    </TableCell>
-                  ) : null}
-                  <TableCell className="font-medium">{z.name}</TableCell>
-                  <TableCell>{z.zoneNumber}</TableCell>
-                  <TableCell className="text-muted-foreground">
-                    {departmentLabel(z)}
-                  </TableCell>
-                  <TableCell className="capitalize text-muted-foreground">
-                    {z.status}
-                  </TableCell>
-                </TableRow>
-              ))}
-              {pageTotal === 0 ? (
-                <TableRow>
-                  <TableCell
-                    colSpan={colCount}
-                    className="h-24 text-center text-sm text-muted-foreground"
-                  >
-                    No zones found.
-                  </TableCell>
-                </TableRow>
-              ) : null}
-            </TableBody>
-          </Table>
-        </PaginatedTableShell>
-      )}
+      <AppDataGrid
+        rows={gridRows}
+        columns={columns}
+        loading={loading}
+        rowCount={pageTotal}
+        paginationModel={{
+          page: Math.max(0, shellPage - 1),
+          pageSize: limit,
+        }}
+        onPaginationModelChange={(model) => {
+          setListPage(model.page + 1);
+        }}
+        noRowsLabel="No zones found."
+      />
+      </div>
     </div>
   );
 }

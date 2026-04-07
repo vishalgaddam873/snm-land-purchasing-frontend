@@ -4,15 +4,12 @@ import { AUTH_COOKIE } from "@/lib/auth/session";
 
 const PROTECTED_PREFIXES = [
   "/dashboard",
-  "/land",
-  "/owners",
-  "/documents",
-  "/approvals",
   "/reports",
   "/settings",
   "/departments",
   "/zones",
   "/branches",
+  "/properties",
   "/admin",
 ];
 
@@ -37,17 +34,14 @@ export const config = {
   matcher: [
     "/zones",
     "/dashboard/:path*",
-    "/land/:path*",
-    "/owners/:path*",
-    "/documents/:path*",
-    "/approvals/:path*",
     "/reports/:path*",
     "/settings/:path*",
     "/departments/:path*",
     "/zones/:path*",
     "/branches",
     "/branches/:path*",
+    "/properties",
+    "/properties/:path*",
     "/admin/:path*",
   ],
 };
-

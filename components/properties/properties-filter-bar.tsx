@@ -18,6 +18,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  ZoneSearchableSelect,
+  type ZoneSelectOption,
+} from "@/components/branches/zone-searchable-select";
 import { BranchSearchableSelect } from "@/components/properties/branch-searchable-select";
 import {
   bhawanLabel,
@@ -35,6 +39,7 @@ import { Search, SlidersHorizontal } from "lucide-react";
 import * as React from "react";
 
 export type PropertyListFilterValues = {
+  zoneId: string;
   branchId: string;
   propertyType: string;
   status: string;
@@ -45,6 +50,7 @@ export type PropertyListFilterValues = {
 };
 
 export const EMPTY_PROPERTY_LIST_FILTERS: PropertyListFilterValues = {
+  zoneId: "",
   branchId: "",
   propertyType: "",
   status: "",
@@ -58,6 +64,7 @@ export function countActivePropertyFilters(
   f: PropertyListFilterValues,
 ): number {
   return (
+    (f.zoneId ? 1 : 0) +
     (f.branchId ? 1 : 0) +
     (f.propertyType ? 1 : 0) +
     (f.status ? 1 : 0) +
@@ -79,6 +86,9 @@ type PropertiesFilterBarProps = {
   branches: BranchOption[];
   branchesLoading: boolean;
   branchesFetchError: string | null;
+  zones: ZoneSelectOption[];
+  zonesLoading: boolean;
+  zonesFetchError: string | null;
   className?: string;
 };
 
@@ -107,6 +117,15 @@ function FilterField({
 const selectTriggerClass =
   "h-10 w-full rounded-xl border-border/80 bg-background text-[13px] shadow-sm";
 
+function sortZonesForSelect(zones: ZoneSelectOption[]): ZoneSelectOption[] {
+  return [...zones].sort((x, y) =>
+    (x.zoneNumber ?? "").localeCompare(y.zoneNumber ?? "", undefined, {
+      numeric: true,
+      sensitivity: "base",
+    }),
+  );
+}
+
 export function PropertiesFilterBar({
   search,
   onSearchChange,
@@ -116,6 +135,9 @@ export function PropertiesFilterBar({
   branches,
   branchesLoading,
   branchesFetchError,
+  zones,
+  zonesLoading,
+  zonesFetchError,
   className,
 }: PropertiesFilterBarProps) {
   const [filterDialogOpen, setFilterDialogOpen] = React.useState(false);
@@ -126,6 +148,18 @@ export function PropertiesFilterBar({
     () => sortBranchesForSelect(branches),
     [branches],
   );
+
+  const sortedZones = React.useMemo(
+    () => sortZonesForSelect(zones),
+    [zones],
+  );
+
+  const zoneTriggerLabel = React.useMemo(() => {
+    if (!draftFilters.zoneId) return "All zones";
+    if (zonesLoading) return "Loading…";
+    const z = sortedZones.find((x) => x._id === draftFilters.zoneId);
+    return z ? `${z.name} (${z.zoneNumber})` : "Unknown zone";
+  }, [draftFilters.zoneId, sortedZones, zonesLoading]);
 
   /** Base UI SelectValue shows raw `value` unless we pass explicit children. */
   const branchTriggerLabel = React.useMemo(() => {
@@ -259,8 +293,9 @@ export function PropertiesFilterBar({
 
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="text-xs text-muted-foreground">
-          Search updates as you type. Use the filter control to narrow by branch,
-          type, status, and more — then <span className="font-medium text-foreground/90">Save filters</span> to
+          Search updates as you type. Use the filter control to narrow by zone,
+          branch, type, status, and more — then{" "}
+          <span className="font-medium text-foreground/90">Save filters</span> to
           apply.
         </p>
         {hasAnyActive ? (
@@ -279,6 +314,11 @@ export function PropertiesFilterBar({
       {branchesFetchError ? (
         <p className="text-xs text-amber-700 dark:text-amber-400">
           {branchesFetchError}
+        </p>
+      ) : null}
+      {zonesFetchError ? (
+        <p className="text-xs text-amber-700 dark:text-amber-400">
+          {zonesFetchError}
         </p>
       ) : null}
 
@@ -307,6 +347,21 @@ export function PropertiesFilterBar({
 
           <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <FilterField label="Zone" htmlFor="dlg-filter-zone">
+                <ZoneSearchableSelect
+                  id="dlg-filter-zone"
+                  zones={sortedZones}
+                  disabled={zonesLoading}
+                  value={draftFilters.zoneId}
+                  onChange={(zoneId) => patchDraft({ zoneId })}
+                  triggerLabel={zoneTriggerLabel}
+                  showAllOption
+                  allOptionLabel="All zones"
+                  triggerClassName={selectTriggerClass}
+                  menuZIndexClass="z-[400]"
+                />
+              </FilterField>
+
               <FilterField label="Branch" htmlFor="dlg-filter-branch">
                 <BranchSearchableSelect
                   id="dlg-filter-branch"
@@ -443,6 +498,9 @@ export function PropertiesFilterBar({
                     <SelectItem value="under_construction">
                       {constructionLabel("under_construction")}
                     </SelectItem>
+                    <SelectItem value="building">
+                      {constructionLabel("building")}
+                    </SelectItem>
                     <SelectItem value="constructed">
                       {constructionLabel("constructed")}
                     </SelectItem>
@@ -534,7 +592,7 @@ export function PropertiesFilterBar({
               className="w-full rounded-xl sm:w-auto"
               onClick={resetDraft}
             >
-              Reset form
+              Clear Filters
             </Button>
             <div className="flex w-full flex-col-reverse gap-2 sm:w-auto sm:flex-row">
               <Button

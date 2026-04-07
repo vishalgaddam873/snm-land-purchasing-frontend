@@ -13,10 +13,12 @@ import {
   PropertiesFilterBar,
   type PropertyListFilterValues,
 } from "@/components/properties/properties-filter-bar";
-import { DataGridThemeProvider } from "@/components/mui/data-grid-theme-provider";
+import { AppDataGrid } from "@/components/tables/app-data-grid";
+import type { ZoneSelectOption } from "@/components/branches/zone-searchable-select";
 import {
   bhawanLabel,
   constructionLabel,
+  fetchActiveZonesForSelect,
   fetchBranchesForSelect,
   labelFromSnake,
   propertyTypeLabel,
@@ -33,7 +35,7 @@ import { isPaginatedList } from "@/lib/api/paginated-list";
 import { DEFAULT_TABLE_PAGE_SIZE } from "@/hooks/use-client-pagination";
 import IconButton from "@mui/material/IconButton";
 import Stack from "@mui/material/Stack";
-import { DataGrid, type GridColDef } from "@mui/x-data-grid";
+import { type GridColDef } from "@mui/x-data-grid";
 import { Eye, Pencil, Trash2 } from "lucide-react";
 import Link from "next/link";
 import * as React from "react";
@@ -65,6 +67,11 @@ export function PropertiesClient({ canManage }: { canManage: boolean }) {
   const [branchesFetchError, setBranchesFetchError] = React.useState<
     string | null
   >(null);
+  const [zones, setZones] = React.useState<ZoneSelectOption[]>([]);
+  const [zonesLoading, setZonesLoading] = React.useState(true);
+  const [zonesFetchError, setZonesFetchError] = React.useState<string | null>(
+    null,
+  );
   const [searchInput, setSearchInput] = React.useState("");
   const [debouncedSearch, setDebouncedSearch] = React.useState("");
   const [appliedFilters, setAppliedFilters] =
@@ -226,6 +233,7 @@ export function PropertiesClient({ canManage }: { canManage: boolean }) {
           limit: String(DEFAULT_TABLE_PAGE_SIZE),
         });
         if (search) qs.set("search", search);
+        if (fv.zoneId) qs.set("zoneId", fv.zoneId);
         if (fv.branchId) qs.set("branchId", fv.branchId);
         if (fv.propertyType) qs.set("propertyType", fv.propertyType);
         if (fv.status) qs.set("status", fv.status);
@@ -301,6 +309,22 @@ export function PropertiesClient({ canManage }: { canManage: boolean }) {
     })();
   }, []);
 
+  React.useEffect(() => {
+    void (async () => {
+      setZonesLoading(true);
+      setZonesFetchError(null);
+      try {
+        const list = await fetchActiveZonesForSelect();
+        setZones(list);
+      } catch {
+        setZones([]);
+        setZonesFetchError("Could not load zones.");
+      } finally {
+        setZonesLoading(false);
+      }
+    })();
+  }, []);
+
   async function confirmDelete() {
     if (!toDelete) return;
     setError(null);
@@ -344,6 +368,9 @@ export function PropertiesClient({ canManage }: { canManage: boolean }) {
         branches={branches}
         branchesLoading={branchesLoading}
         branchesFetchError={branchesFetchError}
+        zones={zones}
+        zonesLoading={zonesLoading}
+        zonesFetchError={zonesFetchError}
       />
 
       {error ? (
@@ -352,37 +379,20 @@ export function PropertiesClient({ canManage }: { canManage: boolean }) {
         </p>
       ) : null}
 
-      <DataGridThemeProvider>
-        <div className="flex h-[min(62vh,30rem)] min-h-[22rem] w-full min-w-0 flex-col overflow-hidden rounded-2xl border border-border/80 bg-card shadow-sm">
-          <DataGrid
-            rows={gridRows}
-            columns={columns}
-            loading={loading}
-            rowCount={pageTotal}
-            paginationMode="server"
-            paginationModel={{
-              page: Math.max(0, shellPage - 1),
-              pageSize: limit,
-            }}
-            onPaginationModelChange={(model) => {
-              setListPage(model.page + 1);
-            }}
-            pageSizeOptions={[DEFAULT_TABLE_PAGE_SIZE]}
-            disableRowSelectionOnClick
-            disableColumnSorting
-            density="compact"
-            sx={{
-              flex: 1,
-              minHeight: 0,
-              width: "100%",
-              border: "none",
-            }}
-            localeText={{
-              noRowsLabel: "No properties yet.",
-            }}
-          />
-        </div>
-      </DataGridThemeProvider>
+      <AppDataGrid
+        rows={gridRows}
+        columns={columns}
+        loading={loading}
+        rowCount={pageTotal}
+        paginationModel={{
+          page: Math.max(0, shellPage - 1),
+          pageSize: limit,
+        }}
+        onPaginationModelChange={(model) => {
+          setListPage(model.page + 1);
+        }}
+        noRowsLabel="No properties yet."
+      />
 
       {canManage ? (
         <Dialog

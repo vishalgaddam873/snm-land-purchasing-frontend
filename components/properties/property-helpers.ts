@@ -1,3 +1,5 @@
+import type { ZoneSelectOption } from "@/components/branches/zone-searchable-select";
+
 export type ZoneMini = { _id: string; name: string; zoneNumber: string };
 
 export type PopulatedBranch = {
@@ -57,6 +59,7 @@ export function constructionLabel(v: string): string {
   const m: Record<string, string> = {
     not_constructed: "Not constructed",
     under_construction: "Under construction",
+    building: "Building",
     constructed: "Constructed",
   };
   return m[v] ?? v;
@@ -142,15 +145,20 @@ export function sortBranchesForSelect(list: BranchOption[]): BranchOption[] {
   );
 }
 
-export async function fetchBranchesForSelect(): Promise<BranchOption[]> {
-  const qs = new URLSearchParams({ page: "1", limit: "100" });
-  const res = await fetch(`/api/branches?${qs}`, { cache: "no-store" });
+export async function fetchActiveZonesForSelect(): Promise<ZoneSelectOption[]> {
+  const res = await fetch("/api/zones/active", { cache: "no-store" });
   if (!res.ok) return [];
-  const data = await res.json().catch(() => ({}));
-  if (!data?.data || !Array.isArray(data.data)) return [];
-  return (data.data as BranchOption[]).filter(
-    (b) => b.status !== "deleted",
-  );
+  const data = await res.json().catch(() => []);
+  if (!Array.isArray(data)) return [];
+  return data as ZoneSelectOption[];
+}
+
+export async function fetchBranchesForSelect(): Promise<BranchOption[]> {
+  const res = await fetch("/api/branches/for-select", { cache: "no-store" });
+  if (!res.ok) return [];
+  const data = await res.json().catch(() => []);
+  if (!Array.isArray(data)) return [];
+  return (data as BranchOption[]).filter((b) => b.status !== "deleted");
 }
 
 export function labelFromSnake(s: string): string {

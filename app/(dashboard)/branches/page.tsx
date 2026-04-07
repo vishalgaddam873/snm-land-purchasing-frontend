@@ -1,12 +1,11 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { ApiOfflineNotice } from "@/components/layout/api-offline-notice";
-import { PageHeader } from "@/components/layout/page-header";
 import { BranchesClient } from "@/components/tables/branches-client";
 import { getServerSessionUser } from "@/lib/auth/server-session";
 
 export const metadata: Metadata = {
-  title: "Branches",
+  title: "All Branches",
 };
 
 export default async function BranchesPage() {
@@ -32,17 +31,15 @@ export default async function BranchesPage() {
   ];
 
   return (
-    <div className="space-y-8">
-      <PageHeader
-        title="Branches"
-        description={
-          canManage
-            ? "Create branches and assign each to a zone. Other users can view and filter the list."
-            : "Branches by zone. Contact a superadmin to add or change branches."
-        }
-        crumbs={crumbs}
-      />
-      <BranchesClient canManage={canManage} />
-    </div>
+    <BranchesClient
+      canManage={canManage}
+      title="All Branches"
+      description={
+        canManage
+          ? "Create branches and assign each to a zone. Other users can view and filter the list."
+          : "Branches by zone. Contact a superadmin to add or change branches."
+      }
+      crumbs={crumbs}
+    />
   );
 }

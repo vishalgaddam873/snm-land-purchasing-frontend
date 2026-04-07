@@ -1,12 +1,11 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { ApiOfflineNotice } from "@/components/layout/api-offline-notice";
-import { PageHeader } from "@/components/layout/page-header";
 import { DepartmentsClient } from "@/components/tables/departments-client";
 import { getServerSessionUser } from "@/lib/auth/server-session";
 
 export const metadata: Metadata = {
-  title: "Departments",
+  title: "All Departments",
 };
 
 export default async function DepartmentsPage() {
@@ -31,14 +30,10 @@ export default async function DepartmentsPage() {
   ];
 
   return (
-    <div className="space-y-8">
-      <PageHeader
-        title="Departments"
-        description="Manage publicity departments used for zone/branch mapping and reporting."
-        crumbs={crumbs}
-      />
-      <DepartmentsClient />
-    </div>
+    <DepartmentsClient
+      title="All Departments"
+      description="Manage publicity departments used for zone and branch mapping. Codes are generated automatically (DEP-001, DEP-002…)."
+      crumbs={crumbs}
+    />
   );
 }
-

@@ -26,22 +26,17 @@ export function PropertyFormPageClient(props: PropertyFormPageClientProps) {
 
   const isEdit = props.mode === "edit";
   const property = isEdit ? props.property : undefined;
-  const backHref =
-    props.mode === "edit"
-      ? `/properties/${props.property._id}`
-      : "/properties";
-  const backLabel = isEdit ? "← Back to details" : "← Back to properties";
 
   return (
     <div className="w-full space-y-6">
       <Link
-        href={backHref}
+        href="/properties"
         className={cn(
           buttonVariants({ variant: "outline", size: "sm" }),
           "rounded-xl",
         )}
       >
-        {backLabel}
+        ← Back to list
       </Link>
       <div className="w-full rounded-2xl border border-border/80 bg-card p-6 shadow-sm sm:p-8">
         <PropertyEditForm
@@ -61,7 +56,7 @@ export function PropertyFormPageClient(props: PropertyFormPageClientProps) {
             }
             router.push("/properties");
           }}
-          onCancel={() => router.push(backHref)}
+          onCancel={() => router.push("/properties")}
           className="w-full max-w-none space-y-5"
         />
       </div>

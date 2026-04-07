@@ -262,6 +262,7 @@ export function PropertyEditForm({
           >
             <option value="not_constructed">Not constructed</option>
             <option value="under_construction">Under construction</option>
+            <option value="building">Building</option>
             <option value="constructed">Constructed</option>
           </select>
         </div>

@@ -11,7 +11,6 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Separator } from "@/components/ui/separator";
 import {
   Sheet,
   SheetContent,
@@ -28,12 +27,6 @@ import * as React from "react";
 import { MissionLogo } from "./mission-logo";
 
 function isNavActive(pathname: string, href: string) {
-  if (href === "/land") {
-    return pathname === "/land";
-  }
-  if (href === "/land/add") {
-    return pathname.startsWith("/land/add");
-  }
   if (href === "/dashboard") {
     return pathname === "/dashboard";
   }
@@ -268,13 +261,6 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
                 Sign in
               </Link>
             )}
-            <Separator orientation="vertical" className="hidden h-6 sm:block" />
-            <Link
-              href="/land/add"
-              className={cn(buttonVariants({ size: "sm" }), "shadow-sm")}
-            >
-              Add land
-            </Link>
           </div>
         </header>
 

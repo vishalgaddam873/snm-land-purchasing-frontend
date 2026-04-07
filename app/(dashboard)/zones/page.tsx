@@ -1,12 +1,11 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { ApiOfflineNotice } from "@/components/layout/api-offline-notice";
-import { PageHeader } from "@/components/layout/page-header";
 import { ZonesClient } from "@/components/tables/zones-client";
 import { getServerSessionUser } from "@/lib/auth/server-session";
 
 export const metadata: Metadata = {
-  title: "Zones",
+  title: "All Zones",
 };
 
 export default async function ZonesPage() {
@@ -32,17 +31,15 @@ export default async function ZonesPage() {
   ];
 
   return (
-    <div className="space-y-8">
-      <PageHeader
-        title="Zones"
-        description={
-          canManage
-            ? "Define zones under publicity departments. Zone numbers are set manually (e.g. 1, 1A)."
-            : "Zones under publicity departments. Contact a superadmin to add or change zones."
-        }
-        crumbs={crumbs}
-      />
-      <ZonesClient canManage={canManage} />
-    </div>
+    <ZonesClient
+      canManage={canManage}
+      title="All Zones"
+      description={
+        canManage
+          ? "Define zones under publicity departments. Zone numbers are set manually (e.g. 1, 1A)."
+          : "Zones under publicity departments. Contact a superadmin to add or change zones."
+      }
+      crumbs={crumbs}
+    />
   );
 }

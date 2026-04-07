@@ -48,7 +48,7 @@ export default async function PropertyEditPage({ params }: PageProps) {
   const crumbs = [
     { href: "/dashboard", label: "Home" },
     { href: "/properties", label: "Properties" },
-    { href: `/properties/${id}`, label: property.propertyName || "Details" },
+    { label: property.propertyName || "Property" },
     { label: "Edit" },
   ];
 

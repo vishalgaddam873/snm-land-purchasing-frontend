@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { ApiOfflineNotice } from "@/components/layout/api-offline-notice";
-import { PageHeader } from "@/components/layout/page-header";
 import { UsersAdminClient } from "@/components/tables/users-admin-client";
 import { getServerSessionUser } from "@/lib/auth/server-session";
 
@@ -31,14 +30,10 @@ export default async function AdminUsersPage() {
   ];
 
   return (
-    <div className="space-y-8">
-      <PageHeader
-        title="User management"
-        description="Create coordinators and reviewers with appropriate roles. Superadmin only."
-        crumbs={crumbs}
-      />
-      <UsersAdminClient />
-    </div>
+    <UsersAdminClient
+      title="User management"
+      description="Create coordinators and reviewers with appropriate roles. Superadmin only."
+      crumbs={crumbs}
+    />
   );
 }
-
