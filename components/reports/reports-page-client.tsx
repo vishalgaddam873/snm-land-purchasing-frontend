@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Select,
   SelectContent,
@@ -18,11 +18,16 @@ import {
 } from "./zone-summary-types";
 import { ZoneSummaryPdfView } from "./zone-summary-pdf-view";
 
+/** Sentinel: include all zones for the selected department (no zoneId query param). */
+const ZONE_ALL_VALUE = "__all_zones__";
+
 export function ReportsPageClient() {
   const [departments, setDepartments] = useState<DepartmentOption[]>([]);
   const [zones, setZones] = useState<ZoneOption[]>([]);
-  const [selectedDepartment, setSelectedDepartment] = useState<string>("all");
-  const [selectedZone, setSelectedZone] = useState<string>("all");
+  /** Empty until the user picks a department (no default). */
+  const [selectedDepartment, setSelectedDepartment] = useState("");
+  /** Empty = all zones in the selected department (optional narrow). */
+  const [selectedZone, setSelectedZone] = useState("");
   const [reportData, setReportData] = useState<FullReportData | null>(null);
   const [loading, setLoading] = useState(false);
   const [optionsLoading, setOptionsLoading] = useState(true);
@@ -48,16 +53,19 @@ export function ReportsPageClient() {
   }, [fetchOptions]);
 
   const fetchReport = useCallback(async () => {
+    if (!selectedDepartment.trim()) {
+      setReportData(null);
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     try {
       const params = new URLSearchParams();
-      if (selectedDepartment && selectedDepartment !== "all") {
-        params.set("departmentId", selectedDepartment);
-      }
-      if (selectedZone && selectedZone !== "all") {
+      params.set("departmentId", selectedDepartment);
+      if (selectedZone.trim()) {
         params.set("zoneId", selectedZone);
       }
-      const suffix = params.toString() ? `?${params.toString()}` : "";
+      const suffix = `?${params.toString()}`;
       const res = await fetch(`/api/reports/full-report${suffix}`);
       if (res.ok) {
         const data = await res.json();
@@ -76,23 +84,23 @@ export function ReportsPageClient() {
     fetchReport();
   }, [fetchReport]);
 
-  const filteredZones = zones.filter((z) =>
-    selectedDepartment === "all" ? true : z.departmentId === selectedDepartment
+  const filteredZones = zones.filter(
+    (z) =>
+      !selectedDepartment.trim() ||
+      z.departmentId === selectedDepartment,
   );
 
-  const departmentTriggerLabel =
-    selectedDepartment === "all"
-      ? "All Departments"
-      : departments.find((d) => d._id === selectedDepartment)?.name ??
-        "Select department";
+  const departmentTriggerLabel = useMemo(() => {
+    if (!selectedDepartment.trim()) return null;
+    const d = departments.find((x) => x._id === selectedDepartment);
+    return d ? `${d.name} (${d.code})` : null;
+  }, [selectedDepartment, departments]);
 
-  const zoneTriggerLabel =
-    selectedZone === "all"
-      ? "All Zones"
-      : (() => {
-          const z = filteredZones.find((x) => x._id === selectedZone);
-          return z ? `Zone ${z.zoneNumber} (${z.name})` : "Select zone";
-        })();
+  const zoneTriggerLabel = useMemo(() => {
+    if (!selectedZone.trim()) return null;
+    const z = filteredZones.find((x) => x._id === selectedZone);
+    return z ? `Zone ${z.zoneNumber} (${z.name})` : null;
+  }, [selectedZone, filteredZones]);
 
   const handlePrint = () => {
     const content = document.getElementById("pdf-content");
@@ -139,11 +147,11 @@ export function ReportsPageClient() {
             Department
           </label>
           <Select
-            value={selectedDepartment}
+            value={selectedDepartment === "" ? undefined : selectedDepartment}
             onValueChange={(v) => {
               if (v) {
                 setSelectedDepartment(v);
-                setSelectedZone("all");
+                setSelectedZone("");
               }
             }}
             disabled={optionsLoading}
@@ -154,7 +162,6 @@ export function ReportsPageClient() {
               </SelectValue>
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">All Departments</SelectItem>
               {departments.map((d) => (
                 <SelectItem key={d._id} value={d._id}>
                   {d.name}
@@ -165,17 +172,34 @@ export function ReportsPageClient() {
         </div>
 
         <div className="w-[280px]">
-          <label className="mb-1.5 block text-sm font-medium">Zone</label>
+          <label className="mb-1.5 block text-sm font-medium">
+            Zone <span className="font-normal text-muted-foreground">(optional)</span>
+          </label>
           <Select
-            value={selectedZone}
-            onValueChange={(v) => v && setSelectedZone(v)}
-            disabled={optionsLoading || filteredZones.length === 0}
+            value={
+              selectedDepartment.trim() && selectedZone.trim()
+                ? selectedZone
+                : undefined
+            }
+            onValueChange={(v) => {
+              if (!v) return;
+              setSelectedZone(v === ZONE_ALL_VALUE ? "" : v);
+            }}
+            disabled={
+              optionsLoading ||
+              !selectedDepartment.trim() ||
+              filteredZones.length === 0
+            }
           >
             <SelectTrigger className="w-full">
-              <SelectValue placeholder="Select zone">{zoneTriggerLabel}</SelectValue>
+              <SelectValue placeholder="Optional — leave empty for all zones">
+                {zoneTriggerLabel}
+              </SelectValue>
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">All Zones</SelectItem>
+              <SelectItem value={ZONE_ALL_VALUE}>
+                All zones in this department
+              </SelectItem>
               {filteredZones.map((z) => (
                 <SelectItem key={z._id} value={z._id}>
                   Zone {z.zoneNumber} ({z.name})
@@ -189,7 +213,7 @@ export function ReportsPageClient() {
           variant="outline"
           size="sm"
           onClick={fetchReport}
-          disabled={loading}
+          disabled={loading || !selectedDepartment.trim()}
           className="h-9"
         >
           {loading ? (
@@ -205,7 +229,12 @@ export function ReportsPageClient() {
             variant="outline"
             size="sm"
             onClick={handlePrint}
-            disabled={loading || !reportData || reportData.zoneSummaries.length === 0}
+            disabled={
+              loading ||
+              !selectedDepartment.trim() ||
+              !reportData ||
+              reportData.zoneSummaries.length === 0
+            }
             className="h-9"
           >
             <Printer className="size-4" />

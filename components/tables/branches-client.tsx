@@ -11,6 +11,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { BranchesBulkExcelControls } from "@/components/branches/branches-bulk-excel-controls";
 import { BranchesFilterBar } from "@/components/branches/branches-filter-bar";
 import {
   SectorSearchableSelect,
@@ -539,6 +540,15 @@ export function BranchesClient({
           zones={zones}
           zonesLoading={zonesLoading}
           zonesFetchError={zonesFetchError}
+          exportAction={
+            canManage ? (
+              <div className="flex flex-wrap items-stretch justify-end gap-2">
+                <BranchesBulkExcelControls
+                  onImported={() => void dispatch(fetchBranchesList())}
+                />
+              </div>
+            ) : undefined
+          }
         />
 
         {canManage ? (

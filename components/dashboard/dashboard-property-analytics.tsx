@@ -61,8 +61,12 @@ type PropertyAnalyticsResponse = {
   };
   sectionB: {
     bhawans: number;
+    /** B3 line; subset of B1; omit on older API → treated as 0. */
+    bhawansUnderConstruction?: number;
     buildingsOtherThanBhawan: number;
     vacantPlots: number;
+    /** Present from API v2; older responses omit and UI treats as 0. */
+    vacantPlotsFitForConstruction?: number;
     notFitForConstructionPlots: number;
     noBhawanNoPlots: number;
     total: number;
@@ -526,7 +530,7 @@ export function DashboardPropertyAnalytics() {
               <section className="grid gap-4 lg:grid-cols-2 lg:items-start">
                 <ChartCard
                   title="Structure / land type"
-                  subtitle="Bhawan vs building-type / plots (B1–B4)"
+                  subtitle="Bhawan total (B1), building (B2), vacant (B4), no bhawan/plot (B5)"
                 >
                   <ResponsiveContainer width="100%" height={280}>
                     <BarChart
@@ -606,35 +610,8 @@ export function DashboardPropertyAnalytics() {
                     />
                     <AnalyticsTable
                       title="Structure / land type"
-                      rows={[
-                        {
-                          code: "B1",
-                          label:
-                            "Total No. of Bhawans (Bhawan + under construction + shed)",
-                          value: data.sectionB.bhawans,
-                        },
-                        {
-                          code: "B2",
-                          label: "Total No. of Buildings other than Bhawan",
-                          value: data.sectionB.buildingsOtherThanBhawan,
-                        },
-                        {
-                          code: "B3",
-                          label: "No. of Vacant Plots",
-                          value: data.sectionB.vacantPlots,
-                        },
-                        {
-                          code: "B4",
-                          label: "No Bhawan No Plots",
-                          value: data.sectionB.noBhawanNoPlots,
-                        },
-                        {
-                          code: "B5",
-                          label: "Not Fit for Construction Plots",
-                          value: data.sectionB.notFitForConstructionPlots,
-                        },
-                      ]}
-                      totalLabel="Total (B1–B4)"
+                      rows={structureLandTypeTableRows(data)}
+                      totalLabel="Total (B1–B5)"
                       totalValue={data.sectionB.total}
                     />
                   </div>
@@ -736,9 +713,13 @@ export function DashboardPropertyAnalytics() {
               <p className="text-center text-[11px] leading-relaxed text-muted-foreground">
                 Registered / to-register rows count main branch sites only;
                 adjoining and additional rows are separate units. B1 is the count of
-                bhawan types “bhawan”, “bhawan_under_construction”, and “shed”. B2
+                bhawan types “bhawan”, “bhawan_under_construction”, and “shed”. B3 is
+                only “bhawan_under_construction” and is already included in B1. B2
                 counts bhawan type “building” only (self-made shed and NA are not in
-                B1 or B2).
+                B1 or B2). B4 lists all vacant plots; indented lines are fit vs not
+                fit for construction (plus any vacant plot with no status yet). The
+                bottom total is shown as B1–B5; B3 is already inside B1, so the figure
+                is B1+B2+B4+B5 without double-counting B3.
               </p>
             </>
           ) : null}
@@ -827,6 +808,57 @@ function EmptyChart({ label }: { label: string }) {
   );
 }
 
+type AnalyticsTableRow = {
+  code: string;
+  label: string;
+  value: number;
+  subRows?: { label: string; value: number }[];
+};
+
+function structureLandTypeTableRows(
+  data: PropertyAnalyticsResponse,
+): AnalyticsTableRow[] {
+  const fit = data.sectionB.vacantPlotsFitForConstruction ?? 0;
+  const notFit = data.sectionB.notFitForConstructionPlots;
+  const vacantTotal = data.sectionB.vacantPlots;
+  const rest = Math.max(0, vacantTotal - fit - notFit);
+  const subRows: { label: string; value: number }[] = [
+    { label: "Fit for construction", value: fit },
+    { label: "Not fit for construction", value: notFit },
+  ];
+  if (rest > 0) {
+    subRows.push({ label: "Status not recorded", value: rest });
+  }
+  return [
+    {
+      code: "B1",
+      label: "Total No. of Bhawans (Bhawan + under construction + shed)",
+      value: data.sectionB.bhawans,
+    },
+    {
+      code: "B2",
+      label: "Total No. of Buildings other than Bhawan",
+      value: data.sectionB.buildingsOtherThanBhawan,
+    },
+    {
+      code: "B3",
+      label: "No. of Bhawan Under Construction",
+      value: data.sectionB.bhawansUnderConstruction ?? 0,
+    },
+    {
+      code: "B4",
+      label: "No. of Vacant Plots",
+      value: vacantTotal,
+      subRows,
+    },
+    {
+      code: "B5",
+      label: "No Bhawan No Plots",
+      value: data.sectionB.noBhawanNoPlots,
+    },
+  ];
+}
+
 function AnalyticsTable({
   title,
   rows,
@@ -834,7 +866,7 @@ function AnalyticsTable({
   totalValue,
 }: {
   title: string;
-  rows: { code: string; label: string; value: number }[];
+  rows: AnalyticsTableRow[];
   totalLabel: string;
   totalValue: number;
 }) {
@@ -846,18 +878,31 @@ function AnalyticsTable({
       <table className="w-full min-w-0 border-collapse text-xs sm:text-sm">
         <tbody>
           {rows.map((r) => (
-            <tr
-              key={r.code}
-              className="border-b border-border/50 last:border-b-0"
-            >
-              <td className="w-9 py-1.5 pr-2 font-medium text-muted-foreground">
-                {r.code}
-              </td>
-              <td className="py-1.5 pr-3 text-foreground">{r.label}</td>
-              <td className="py-1.5 text-right font-medium tabular-nums text-foreground">
-                {r.value}
-              </td>
-            </tr>
+            <React.Fragment key={r.code}>
+              <tr className="border-b border-border/50">
+                <td className="w-9 py-1.5 pr-2 font-medium text-muted-foreground">
+                  {r.code}
+                </td>
+                <td className="py-1.5 pr-3 text-foreground">{r.label}</td>
+                <td className="py-1.5 text-right font-medium tabular-nums text-foreground">
+                  {r.value}
+                </td>
+              </tr>
+              {r.subRows?.map((sr, i) => (
+                <tr
+                  key={`${r.code}-sub-${i}`}
+                  className="border-b border-border/35 bg-muted/20"
+                >
+                  <td className="w-9 py-1 pr-2" />
+                  <td className="py-1 pr-3 pl-4 text-muted-foreground">
+                    {sr.label}
+                  </td>
+                  <td className="py-1 text-right tabular-nums text-muted-foreground">
+                    {sr.value}
+                  </td>
+                </tr>
+              ))}
+            </React.Fragment>
           ))}
           <tr className="bg-muted/60">
             <td className="py-2 pr-2" />

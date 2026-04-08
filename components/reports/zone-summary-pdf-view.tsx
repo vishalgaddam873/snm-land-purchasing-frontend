@@ -360,7 +360,16 @@ export function ZoneSummaryPdfView({ reportData }: Props) {
   if (!reportData || reportData.zoneSummaries.length === 0) {
     return (
       <div className="p-8 text-center text-muted-foreground">
-        No zone summaries available. Please select a department or zone.
+        {!reportData ? (
+          <>
+            Select a <span className="font-medium text-foreground">department</span>
+            , and optionally a{" "}
+            <span className="font-medium text-foreground">zone</span>, then the
+            report will load here.
+          </>
+        ) : (
+          "No zone summaries for this selection."
+        )}
       </div>
     );
   }
