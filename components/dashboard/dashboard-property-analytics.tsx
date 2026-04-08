@@ -63,6 +63,7 @@ type PropertyAnalyticsResponse = {
     bhawans: number;
     buildingsOtherThanBhawan: number;
     vacantPlots: number;
+    notFitForConstructionPlots: number;
     noBhawanNoPlots: number;
     total: number;
   };
@@ -513,6 +514,13 @@ export function DashboardPropertyAnalytics() {
                   icon={Building2}
                   accent="from-blue-500/20 to-transparent"
                 />
+                <KpiCard
+                  title="Not fit plots"
+                  value={data.sectionB.notFitForConstructionPlots}
+                  hint="Vacant plots marked not fit for construction"
+                  icon={FileWarning}
+                  accent="from-rose-500/20 to-transparent"
+                />
               </section>
 
               <section className="grid gap-4 lg:grid-cols-2 lg:items-start">
@@ -619,6 +627,11 @@ export function DashboardPropertyAnalytics() {
                           code: "B4",
                           label: "No Bhawan No Plots",
                           value: data.sectionB.noBhawanNoPlots,
+                        },
+                        {
+                          code: "B5",
+                          label: "Not Fit for Construction Plots",
+                          value: data.sectionB.notFitForConstructionPlots,
                         },
                       ]}
                       totalLabel="Total (B1–B4)"

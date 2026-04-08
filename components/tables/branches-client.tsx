@@ -11,15 +11,15 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { BranchesFilterBar } from "@/components/branches/branches-filter-bar";
-import type { ZoneSelectOption } from "@/components/branches/zone-searchable-select";
+import {
+  SectorSearchableSelect,
+  type SectorSelectOption,
+} from "@/components/branches/sector-searchable-select";
+import {
+  ZoneSearchableSelect,
+  type ZoneSelectOption,
+} from "@/components/branches/zone-searchable-select";
 import type { Crumb } from "@/components/layout/page-header";
 import { PageHeader } from "@/components/layout/page-header";
 import { AppDataGrid } from "@/components/tables/app-data-grid";
@@ -174,6 +174,33 @@ export function BranchesClient({
     React.useState<BranchRow | null>(null);
 
   const sortedZones = React.useMemo(() => sortZonesForSelect(zones), [zones]);
+
+  const dialogZoneTriggerLabel = React.useMemo(() => {
+    if (!dialogZoneId) return "Select zone";
+    if (zonesLoading) return "Loading…";
+    const z = sortedZones.find((x) => zoneOptionId(x) === dialogZoneId);
+    return z ? `${z.name} (${z.zoneNumber})` : "Unknown zone";
+  }, [dialogZoneId, sortedZones, zonesLoading]);
+
+  const dialogSectors = React.useMemo<SectorSelectOption[]>(
+    () =>
+      sectorsForDialog.map((s) => ({
+        _id: s._id,
+        name: s.name,
+        sectorNumber: s.sectorNumber,
+      })),
+    [sectorsForDialog],
+  );
+
+  const dialogSectorTriggerLabel = React.useMemo(() => {
+    if (!dialogZoneId.trim()) return "Select a zone first";
+    if (sectorsLoading) return "Loading sectors…";
+    if (!dialogSectorId) return "No sector";
+    const s = dialogSectors.find((x) => x._id === dialogSectorId);
+    if (!s) return "Unknown sector";
+    const n = s.sectorNumber?.trim();
+    return n ? `${s.name} (${n})` : s.name;
+  }, [dialogZoneId, dialogSectorId, dialogSectors, sectorsLoading]);
 
   const skipSearchPageReset = React.useRef(true);
   React.useEffect(() => {
@@ -427,66 +454,35 @@ export function BranchesClient({
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="branch-zoneId">Zone</Label>
-                    <Select
-                      value={dialogZoneId || undefined}
-                      onValueChange={(v) => {
-                        setDialogZoneId(v ?? "");
+                    <ZoneSearchableSelect
+                      id="branch-zoneId"
+                      zones={sortedZones}
+                      disabled={zonesLoading}
+                      value={dialogZoneId}
+                      onChange={(v) => {
+                        setDialogZoneId(v);
                         setDialogSectorId("");
                       }}
-                    >
-                      <SelectTrigger
-                        id="branch-zoneId"
-                        className="h-10 w-full rounded-xl"
-                      >
-                        <SelectValue placeholder="Select zone" />
-                      </SelectTrigger>
-                      <SelectContent className="max-h-72">
-                        {sortedZones.map((z) => {
-                          const id = zoneOptionId(z);
-                          if (!id) return null;
-                          return (
-                            <SelectItem key={id} value={id}>
-                              {z.name} ({z.zoneNumber})
-                            </SelectItem>
-                          );
-                        })}
-                      </SelectContent>
-                    </Select>
+                      triggerLabel={dialogZoneTriggerLabel}
+                      showAllOption={false}
+                      triggerClassName="h-10 w-full rounded-xl"
+                      menuZIndexClass="z-[400]"
+                    />
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="branch-sectorId">Sector (optional)</Label>
-                    <Select
-                      value={dialogSectorId || "__none__"}
-                      onValueChange={(v) =>
-                        setDialogSectorId(v === "__none__" ? "" : (v ?? ""))
-                      }
+                    <SectorSearchableSelect
+                      id="branch-sectorId"
+                      sectors={dialogSectors}
                       disabled={!dialogZoneId.trim() || sectorsLoading}
-                    >
-                      <SelectTrigger
-                        id="branch-sectorId"
-                        className="h-10 w-full rounded-xl"
-                      >
-                        <SelectValue
-                          placeholder={
-                            !dialogZoneId.trim()
-                              ? "Select a zone first"
-                              : sectorsLoading
-                                ? "Loading sectors…"
-                                : "No sector"
-                          }
-                        />
-                      </SelectTrigger>
-                      <SelectContent className="max-h-72">
-                        <SelectItem value="__none__">No sector</SelectItem>
-                        {sectorsForDialog.map((s) => (
-                          <SelectItem key={s._id} value={s._id}>
-                            {s.sectorNumber?.trim()
-                              ? `${s.name} (${s.sectorNumber})`
-                              : s.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                      value={dialogSectorId}
+                      onChange={setDialogSectorId}
+                      triggerLabel={dialogSectorTriggerLabel}
+                      showAllOption
+                      allOptionLabel="No sector"
+                      triggerClassName="h-10 w-full rounded-xl"
+                      menuZIndexClass="z-[400]"
+                    />
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="branch-status">Status</Label>

@@ -12,13 +12,9 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import type { ZoneSelectOption } from "@/components/branches/zone-searchable-select";
+  ZoneSearchableSelect,
+  type ZoneSelectOption,
+} from "@/components/branches/zone-searchable-select";
 import type { Crumb } from "@/components/layout/page-header";
 import { PageHeader } from "@/components/layout/page-header";
 import { AppDataGrid } from "@/components/tables/app-data-grid";
@@ -142,6 +138,13 @@ export function SectorsClient({
   } | null>(null);
 
   const sortedZones = React.useMemo(() => sortZonesForSelect(zones), [zones]);
+
+  const dialogZoneTriggerLabel = React.useMemo(() => {
+    if (!dialogZoneId) return "Select zone";
+    if (zonesLoading) return "Loading…";
+    const z = sortedZones.find((x) => zoneOptionId(x) === dialogZoneId);
+    return z ? `${z.name} (${z.zoneNumber})` : "Unknown zone";
+  }, [dialogZoneId, sortedZones, zonesLoading]);
 
   const fetchSectorsPage = React.useCallback(
     async (page: number, search: string, fv: SectorListFilterValues) => {
@@ -434,28 +437,17 @@ export function SectorsClient({
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="sector-zoneId">Zone</Label>
-                    <Select
-                      value={dialogZoneId || undefined}
-                      onValueChange={(v) => setDialogZoneId(v ?? "")}
-                    >
-                      <SelectTrigger
-                        id="sector-zoneId"
-                        className="h-10 w-full rounded-xl"
-                      >
-                        <SelectValue placeholder="Select zone" />
-                      </SelectTrigger>
-                      <SelectContent className="max-h-72">
-                        {sortedZones.map((z) => {
-                          const id = zoneOptionId(z);
-                          if (!id) return null;
-                          return (
-                            <SelectItem key={id} value={id}>
-                              {z.name} ({z.zoneNumber})
-                            </SelectItem>
-                          );
-                        })}
-                      </SelectContent>
-                    </Select>
+                    <ZoneSearchableSelect
+                      id="sector-zoneId"
+                      zones={sortedZones}
+                      disabled={zonesLoading}
+                      value={dialogZoneId}
+                      onChange={setDialogZoneId}
+                      triggerLabel={dialogZoneTriggerLabel}
+                      showAllOption={false}
+                      triggerClassName="h-10 w-full rounded-xl"
+                      menuZIndexClass="z-[400]"
+                    />
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="sector-status">Status</Label>
