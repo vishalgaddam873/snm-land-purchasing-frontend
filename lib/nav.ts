@@ -21,6 +21,6 @@ export const mainNav: NavItem[] = [
   { label: "Sectors", href: "/sectors", icon: LayoutGrid },
   { label: "Branches", href: "/branches", icon: GitBranch },
   { label: "Properties", href: "/properties", icon: Building2 },
-  { label: "Reports", href: "/reports", icon: LineChart },
+  { label: "Summary Report", href: "/reports", icon: LineChart },
   { label: "Settings", href: "/settings", icon: Settings },
 ];

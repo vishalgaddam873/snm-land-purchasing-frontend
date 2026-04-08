@@ -3,20 +3,20 @@ import { ReportsPageClient } from "@/components/reports/reports-page-client";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Reports",
+  title: "Summary Report",
 };
 
 export default function ReportsPage() {
   const crumbs = [
     { href: "/dashboard", label: "Home" },
-    { label: "Reports" },
+    { label: "Summary Report" },
   ];
 
   return (
-    <div className="space-y-8">
+    <div className="h-[calc(100vh-2rem)] overflow-hidden space-y-6">
       <PageHeader
-        title="Reports"
-        description="Zone-wise summary reports. Select a department or zone to view the summary, then print or save as PDF."
+        title="Summary Report"
+        description="Department/Zone wise summary with PDF preview."
         crumbs={crumbs}
       />
 

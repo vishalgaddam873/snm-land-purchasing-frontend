@@ -44,12 +44,40 @@ function remarkHtmlToText(input: string): string {
 }
 
 const styles = `
+  /* Force A4 landscape printing with margins */
+  @page {
+    size: A4 landscape;
+    margin: 12mm;
+  }
+
+  /* Pages WITHOUT page numbers (Index + Final Summary) */
+  @page noNumber {
+    size: A4 landscape;
+    margin: 12mm;
+    @top-center {
+      content: "";
+    }
+  }
+
+  /* Pages WITH page numbers (Zone data + zone summary) */
+  @page reportPage {
+    size: A4 landscape;
+    margin: 12mm;
+    @top-center {
+      content: counter(page);
+      font-family: Arial, 'Helvetica Neue', Helvetica, sans-serif;
+      font-size: 10px;
+      color: #000;
+    }
+  }
+
   .pdf-container {
     font-family: Arial, 'Helvetica Neue', Helvetica, sans-serif;
     color: #000;
     background: #fff;
     padding: 24px 32px;
-    max-width: 210mm;
+    /* A4 landscape width = 297mm */
+    max-width: 297mm;
     margin: 0 auto;
     font-size: 11px;
   }
@@ -235,6 +263,11 @@ const styles = `
   .zone-summary-page {
     margin-bottom: 40px;
   }
+
+  .zone-pages-start {
+    /* Start numbering from 1 on the first zone page */
+    counter-reset: page 0;
+  }
   .zone-header {
     font-size: 16px;
     font-weight: bold;
@@ -295,7 +328,8 @@ const styles = `
       print-color-adjust: exact;
     }
     .pdf-container {
-      padding: 12px;
+      /* Use @page margin instead of container padding */
+      padding: 0;
       max-width: none;
     }
     .page-break {
@@ -303,6 +337,17 @@ const styles = `
     }
     .page-break:last-child {
       page-break-after: auto;
+    }
+
+    /* Assign page types */
+    .index-page,
+    .final-summary-page {
+      page: noNumber;
+    }
+
+    .zone-data-page,
+    .zone-summary-page {
+      page: reportPage;
     }
   }
 `;
@@ -447,10 +492,12 @@ export function ZoneSummaryPdfView({ reportData }: Props) {
           </div>
         )}
 
-        {/* ZONE DATA AND SUMMARY PAGES */}
-        {zoneSummaries.map((zone) => (
-          <ZonePdfSection key={zone.zoneId} zone={zone} />
-        ))}
+        {/* ZONE DATA AND SUMMARY PAGES (page numbering starts here) */}
+        <div className="zone-pages-start">
+          {zoneSummaries.map((zone) => (
+            <ZonePdfSection key={zone.zoneId} zone={zone} />
+          ))}
+        </div>
       </div>
     </>
   );

@@ -80,6 +80,20 @@ export function ReportsPageClient() {
     selectedDepartment === "all" ? true : z.departmentId === selectedDepartment
   );
 
+  const departmentTriggerLabel =
+    selectedDepartment === "all"
+      ? "All Departments"
+      : departments.find((d) => d._id === selectedDepartment)?.name ??
+        "Select department";
+
+  const zoneTriggerLabel =
+    selectedZone === "all"
+      ? "All Zones"
+      : (() => {
+          const z = filteredZones.find((x) => x._id === selectedZone);
+          return z ? `Zone ${z.zoneNumber} (${z.name})` : "Select zone";
+        })();
+
   const handlePrint = () => {
     const content = document.getElementById("pdf-content");
     if (!content) return;
@@ -118,9 +132,9 @@ export function ReportsPageClient() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="h-full overflow-hidden space-y-4">
       <div className="flex flex-wrap items-end gap-4">
-        <div className="w-56">
+        <div className="w-[280px]">
           <label className="mb-1.5 block text-sm font-medium">
             Department
           </label>
@@ -134,8 +148,10 @@ export function ReportsPageClient() {
             }}
             disabled={optionsLoading}
           >
-            <SelectTrigger>
-              <SelectValue placeholder="Select department" />
+            <SelectTrigger className="w-full">
+              <SelectValue placeholder="Select department">
+                {departmentTriggerLabel}
+              </SelectValue>
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All Departments</SelectItem>
@@ -148,15 +164,15 @@ export function ReportsPageClient() {
           </Select>
         </div>
 
-        <div className="w-56">
+        <div className="w-[280px]">
           <label className="mb-1.5 block text-sm font-medium">Zone</label>
           <Select
             value={selectedZone}
             onValueChange={(v) => v && setSelectedZone(v)}
             disabled={optionsLoading || filteredZones.length === 0}
           >
-            <SelectTrigger>
-              <SelectValue placeholder="Select zone" />
+            <SelectTrigger className="w-full">
+              <SelectValue placeholder="Select zone">{zoneTriggerLabel}</SelectValue>
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All Zones</SelectItem>
@@ -198,13 +214,13 @@ export function ReportsPageClient() {
         </div>
       </div>
 
-      <Card className="overflow-hidden rounded-2xl border-border/80 shadow-sm">
+      <Card className="h-[calc(100vh-320px)] overflow-hidden rounded-2xl border-border/80 shadow-sm">
         {loading ? (
           <div className="flex items-center justify-center p-12">
             <Loader2 className="size-8 animate-spin text-muted-foreground" />
           </div>
         ) : (
-          <div className="bg-white overflow-auto max-h-[80vh]">
+          <div className="h-full bg-white overflow-auto">
             <ZoneSummaryPdfView reportData={reportData} />
           </div>
         )}
