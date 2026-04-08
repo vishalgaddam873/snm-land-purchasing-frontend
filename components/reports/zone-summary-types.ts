@@ -38,7 +38,9 @@ export type ZoneSummaryWithDetails = {
   sectionB: {
     bhawans: number;
     buildingsOtherThanBhawan: number;
+    bhawansUnderConstruction: number;
     vacantPlots: number;
+    vacantPlotsFitForConstruction: number;
     noBhawanNoPlots: number;
     notFitForConstruction: number;
     total: number;
@@ -64,7 +66,9 @@ export type DepartmentOverallSummary = {
   sectionB: {
     bhawans: number;
     buildingsOtherThanBhawan: number;
+    bhawansUnderConstruction: number;
     vacantPlots: number;
+    vacantPlotsFitForConstruction: number;
     noBhawanNoPlots: number;
     notFitForConstruction: number;
     total: number;

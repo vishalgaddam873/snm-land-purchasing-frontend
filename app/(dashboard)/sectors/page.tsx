@@ -36,7 +36,7 @@ export default async function SectorsPage() {
       title="Sectors"
       description={
         canManage
-          ? "Define sectors within zones. Branches can optionally be linked to a sector."
+          ? "Define sectors within zones. Branches can optionally be linked to a sector. Superadmins can seed or update sectors in bulk from Excel (sample download next to search)."
           : "Sectors within zones. Contact a superadmin to add or change sectors."
       }
       crumbs={crumbs}

@@ -61,7 +61,7 @@ type PropertyAnalyticsResponse = {
   };
   sectionB: {
     bhawans: number;
-    /** B3 line; subset of B1; omit on older API → treated as 0. */
+    /** B3 line (under construction); disjoint from B1. Omit on older API → 0. */
     bhawansUnderConstruction?: number;
     buildingsOtherThanBhawan: number;
     vacantPlots: number;
@@ -74,7 +74,7 @@ type PropertyAnalyticsResponse = {
 };
 
 const A_COLORS = ["#059669", "#d97706", "#0284c7", "#7c3aed"];
-const B_COLORS = ["#2563eb", "#64748b", "#16a34a", "#ea580c"];
+const B_COLORS = ["#2563eb", "#64748b", "#0d9488", "#16a34a", "#ea580c"];
 
 function sortZonesForSelect(zones: ZoneSelectOption[]): ZoneSelectOption[] {
   return [...zones].sort((x, y) =>
@@ -296,37 +296,45 @@ export function DashboardPropertyAnalytics() {
 
   const pieB = React.useMemo(() => {
     if (!data) return [];
+    const b3 = data.sectionB.bhawansUnderConstruction ?? 0;
     return [
       {
-        name: "Bhawan & shed",
+        name: "Bhawan + shed (B1)",
         value: data.sectionB.bhawans,
         fill: B_COLORS[0],
       },
       {
-        name: "Building (type)",
+        name: "Building (B2)",
         value: data.sectionB.buildingsOtherThanBhawan,
         fill: B_COLORS[1],
       },
       {
-        name: "Vacant plots",
-        value: data.sectionB.vacantPlots,
+        name: "Under construction (B3)",
+        value: b3,
         fill: B_COLORS[2],
       },
       {
-        name: "No bhawan / no plot",
-        value: data.sectionB.noBhawanNoPlots,
+        name: "Vacant plots (B4)",
+        value: data.sectionB.vacantPlots,
         fill: B_COLORS[3],
+      },
+      {
+        name: "No bhawan / no plot (B5)",
+        value: data.sectionB.noBhawanNoPlots,
+        fill: B_COLORS[4],
       },
     ].filter((d) => d.value > 0);
   }, [data]);
 
   const barB = React.useMemo(() => {
     if (!data) return [];
+    const b3 = data.sectionB.bhawansUnderConstruction ?? 0;
     return [
-      { name: "Bhawan & shed", value: data.sectionB.bhawans },
-      { name: "Building (type)", value: data.sectionB.buildingsOtherThanBhawan },
-      { name: "Vacant plots", value: data.sectionB.vacantPlots },
-      { name: "No bhawan / no plot", value: data.sectionB.noBhawanNoPlots },
+      { name: "Bhawan + shed (B1)", value: data.sectionB.bhawans },
+      { name: "Building (B2)", value: data.sectionB.buildingsOtherThanBhawan },
+      { name: "Under construction (B3)", value: b3 },
+      { name: "Vacant plots (B4)", value: data.sectionB.vacantPlots },
+      { name: "No bhawan / no plot (B5)", value: data.sectionB.noBhawanNoPlots },
     ];
   }, [data]);
 
@@ -513,8 +521,11 @@ export function DashboardPropertyAnalytics() {
                 />
                 <KpiCard
                   title="Bhawans"
-                  value={data.sectionB.bhawans}
-                  hint="Bhawan, bhawan under construction + shed"
+                  value={
+                    data.sectionB.bhawans +
+                    (data.sectionB.bhawansUnderConstruction ?? 0)
+                  }
+                  hint="B1 + B3: constructed bhawan + shed, plus under construction"
                   icon={Building2}
                   accent="from-blue-500/20 to-transparent"
                 />
@@ -530,7 +541,7 @@ export function DashboardPropertyAnalytics() {
               <section className="grid gap-4 lg:grid-cols-2 lg:items-start">
                 <ChartCard
                   title="Structure / land type"
-                  subtitle="Bhawan total (B1), building (B2), vacant (B4), no bhawan/plot (B5)"
+                  subtitle="B1–B5 structure lines (each category counted once)"
                 >
                   <ResponsiveContainer width="100%" height={280}>
                     <BarChart
@@ -605,13 +616,13 @@ export function DashboardPropertyAnalytics() {
                           value: data.sectionA.additionalUnits,
                         },
                       ]}
-                      totalLabel="Total (A1–A4)"
+                      totalLabel="Total (A1, A2, A3 & A4)"
                       totalValue={data.sectionA.total}
                     />
                     <AnalyticsTable
                       title="Structure / land type"
                       rows={structureLandTypeTableRows(data)}
-                      totalLabel="Total (B1–B5)"
+                      totalLabel="Total (B1,B2,B3, B4 & B5)"
                       totalValue={data.sectionB.total}
                     />
                   </div>
@@ -712,14 +723,11 @@ export function DashboardPropertyAnalytics() {
 
               <p className="text-center text-[11px] leading-relaxed text-muted-foreground">
                 Registered / to-register rows count main branch sites only;
-                adjoining and additional rows are separate units. B1 is the count of
-                bhawan types “bhawan”, “bhawan_under_construction”, and “shed”. B3 is
-                only “bhawan_under_construction” and is already included in B1. B2
-                counts bhawan type “building” only (self-made shed and NA are not in
-                B1 or B2). B4 lists all vacant plots; indented lines are fit vs not
-                fit for construction (plus any vacant plot with no status yet). The
-                bottom total is shown as B1–B5; B3 is already inside B1, so the figure
-                is B1+B2+B4+B5 without double-counting B3.
+                adjoining and additional rows are separate units. B1 is completed
+                bhawan plus shed; B3 is bhawan under construction only. B2 counts
+                bhawan type “building” only (self-made shed and NA are not in B1–B3).
+                B4 lists all vacant plots; indented rows are fit vs not fit for
+                construction. The bottom total is B1,B2,B3, B4 & B5 (no overlap).
               </p>
             </>
           ) : null}
@@ -821,18 +829,14 @@ function structureLandTypeTableRows(
   const fit = data.sectionB.vacantPlotsFitForConstruction ?? 0;
   const notFit = data.sectionB.notFitForConstructionPlots;
   const vacantTotal = data.sectionB.vacantPlots;
-  const rest = Math.max(0, vacantTotal - fit - notFit);
   const subRows: { label: string; value: number }[] = [
     { label: "Fit for construction", value: fit },
     { label: "Not fit for construction", value: notFit },
   ];
-  if (rest > 0) {
-    subRows.push({ label: "Status not recorded", value: rest });
-  }
   return [
     {
       code: "B1",
-      label: "Total No. of Bhawans (Bhawan + under construction + shed)",
+      label: "Total No. of Bhawans and Shed (excl. under construction)",
       value: data.sectionB.bhawans,
     },
     {

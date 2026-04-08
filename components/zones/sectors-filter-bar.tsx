@@ -92,6 +92,8 @@ type SectorsFilterBarProps = {
   zones: ZoneSelectOption[];
   zonesLoading: boolean;
   zonesFetchError: string | null;
+  /** Same row as search (e.g. bulk Excel import). */
+  toolbarAction?: React.ReactNode;
   className?: string;
 };
 
@@ -104,6 +106,7 @@ export function SectorsFilterBar({
   zones,
   zonesLoading,
   zonesFetchError,
+  toolbarAction,
   className,
 }: SectorsFilterBarProps) {
   const [filterDialogOpen, setFilterDialogOpen] = React.useState(false);
@@ -146,53 +149,60 @@ export function SectorsFilterBar({
 
   return (
     <div className={cn("space-y-3", className)}>
-      <div
-        className={cn(
-          "flex h-12 w-full items-stretch gap-0 overflow-hidden rounded-full border border-border/80 bg-muted/40 shadow-sm ring-1 ring-black/5 transition-colors focus-within:border-ring focus-within:ring-2 focus-within:ring-ring/30 dark:bg-muted/25",
-        )}
-      >
-        <label
-          htmlFor="sectors-search"
-          className="relative flex min-w-0 flex-1 items-center"
-        >
-          <Search
-            className="pointer-events-none absolute left-4 size-[18px] text-muted-foreground"
-            aria-hidden
-          />
-          <Input
-            id="sectors-search"
-            type="search"
-            value={search}
-            onChange={(e) => onSearchChange(e.target.value)}
-            placeholder="Search sectors…"
-            className={cn(
-              "h-full min-w-0 flex-1 rounded-none border-0 bg-transparent pl-11 pr-3 text-[15px] shadow-none ring-0 focus-visible:ring-0 md:text-[15px]",
-              "placeholder:text-muted-foreground/75",
-            )}
-            autoComplete="off"
-          />
-        </label>
-        <div className="hidden w-px shrink-0 self-stretch bg-border/60 sm:block" />
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon"
-          onClick={() => setFilterDialogOpen(true)}
+      <div className="flex w-full min-w-0 flex-row items-stretch gap-2 sm:gap-3">
+        <div
           className={cn(
-            "h-12 w-12 shrink-0 rounded-none rounded-r-full hover:bg-muted/80",
-            appliedFilterCount > 0 && "text-primary",
+            "flex h-12 min-w-0 flex-1 items-stretch gap-0 overflow-hidden rounded-full border border-border/80 bg-muted/40 shadow-sm ring-1 ring-black/5 transition-colors focus-within:border-ring focus-within:ring-2 focus-within:ring-ring/30 dark:bg-muted/25",
           )}
-          aria-label={`Open filters${appliedFilterCount > 0 ? ` (${appliedFilterCount} active)` : ""}`}
         >
-          <span className="relative inline-flex">
-            <SlidersHorizontal className="size-[18px]" aria-hidden />
-            {appliedFilterCount > 0 ? (
-              <span className="absolute -right-1.5 -top-1.5 flex size-4 items-center justify-center rounded-full bg-primary text-[10px] font-semibold text-primary-foreground">
-                {appliedFilterCount > 8 ? "9+" : appliedFilterCount}
-              </span>
-            ) : null}
-          </span>
-        </Button>
+          <label
+            htmlFor="sectors-search"
+            className="relative flex min-w-0 flex-1 items-center"
+          >
+            <Search
+              className="pointer-events-none absolute left-4 size-[18px] text-muted-foreground"
+              aria-hidden
+            />
+            <Input
+              id="sectors-search"
+              type="search"
+              value={search}
+              onChange={(e) => onSearchChange(e.target.value)}
+              placeholder="Search sectors…"
+              className={cn(
+                "h-full min-w-0 flex-1 rounded-none border-0 bg-transparent pl-11 pr-3 text-[15px] shadow-none ring-0 focus-visible:ring-0 md:text-[15px]",
+                "placeholder:text-muted-foreground/75",
+              )}
+              autoComplete="off"
+            />
+          </label>
+          <div className="hidden w-px shrink-0 self-stretch bg-border/60 sm:block" />
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            onClick={() => setFilterDialogOpen(true)}
+            className={cn(
+              "h-12 w-12 shrink-0 rounded-none rounded-r-full hover:bg-muted/80",
+              appliedFilterCount > 0 && "text-primary",
+            )}
+            aria-label={`Open filters${appliedFilterCount > 0 ? ` (${appliedFilterCount} active)` : ""}`}
+          >
+            <span className="relative inline-flex">
+              <SlidersHorizontal className="size-[18px]" aria-hidden />
+              {appliedFilterCount > 0 ? (
+                <span className="absolute -right-1.5 -top-1.5 flex size-4 items-center justify-center rounded-full bg-primary text-[10px] font-semibold text-primary-foreground">
+                  {appliedFilterCount > 8 ? "9+" : appliedFilterCount}
+                </span>
+              ) : null}
+            </span>
+          </Button>
+        </div>
+        {toolbarAction ? (
+          <div className="flex shrink-0 flex-wrap items-stretch gap-2">
+            {toolbarAction}
+          </div>
+        ) : null}
       </div>
 
       <div className="flex flex-wrap items-center justify-between gap-2">

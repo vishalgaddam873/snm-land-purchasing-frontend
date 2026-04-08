@@ -18,6 +18,7 @@ import {
 import type { Crumb } from "@/components/layout/page-header";
 import { PageHeader } from "@/components/layout/page-header";
 import { AppDataGrid } from "@/components/tables/app-data-grid";
+import { SectorsBulkExcelControls } from "@/components/sectors/sectors-bulk-excel-controls";
 import {
   EMPTY_SECTOR_LIST_FILTERS,
   SectorsFilterBar,
@@ -507,6 +508,19 @@ export function SectorsClient({
           zones={zones}
           zonesLoading={zonesLoading}
           zonesFetchError={zonesFetchError}
+          toolbarAction={
+            canManage ? (
+              <SectorsBulkExcelControls
+                onImported={() => {
+                  void fetchSectorsPage(
+                    listPage,
+                    debouncedSearch,
+                    appliedFilters,
+                  );
+                }}
+              />
+            ) : null
+          }
         />
 
         {canManage ? (

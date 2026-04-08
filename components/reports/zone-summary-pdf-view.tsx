@@ -43,6 +43,62 @@ function remarkHtmlToText(input: string): string {
   return text;
 }
 
+/** Structure / land type B1–B5 (aligned with dashboard detailed breakdown). */
+function SectionBStructureRows({
+  sectionB,
+}: {
+  sectionB: ZoneSummaryWithDetails["sectionB"];
+}) {
+  const fit = sectionB.vacantPlotsFitForConstruction ?? 0;
+  const notFit = sectionB.notFitForConstruction;
+  return (
+    <>
+      <tr>
+        <td className="code-col">B1</td>
+        <td className="label-col">
+          Total No. of Bhawans and Shed (excl. under construction)
+        </td>
+        <td className="value-col">{sectionB.bhawans}</td>
+      </tr>
+      <tr>
+        <td className="code-col">B2</td>
+        <td className="label-col">Total No. of Buildings other than Bhawan</td>
+        <td className="value-col">{sectionB.buildingsOtherThanBhawan}</td>
+      </tr>
+      <tr>
+        <td className="code-col">B3</td>
+        <td className="label-col">No. of Bhawan Under Construction</td>
+        <td className="value-col">{sectionB.bhawansUnderConstruction ?? 0}</td>
+      </tr>
+      <tr>
+        <td className="code-col">B4</td>
+        <td className="label-col">No. of Vacant Plots</td>
+        <td className="value-col">{sectionB.vacantPlots}</td>
+      </tr>
+      <tr>
+        <td className="code-col"></td>
+        <td className="label-col sub-label">Fit for construction</td>
+        <td className="value-col">{fit}</td>
+      </tr>
+      <tr>
+        <td className="code-col"></td>
+        <td className="label-col sub-label">Not fit for construction</td>
+        <td className="value-col">{notFit}</td>
+      </tr>
+      <tr>
+        <td className="code-col">B5</td>
+        <td className="label-col">No Bhawan No Plots</td>
+        <td className="value-col">{sectionB.noBhawanNoPlots}</td>
+      </tr>
+      <tr className="total-row">
+        <td className="code-col"></td>
+        <td className="label-col">Total (B1,B2,B3, B4 & B5)</td>
+        <td className="value-col">{sectionB.total}</td>
+      </tr>
+    </>
+  );
+}
+
 const styles = `
   /* Force A4 landscape printing with margins */
   @page {
@@ -165,6 +221,12 @@ const styles = `
   }
   .summary-table .label-col {
     width: 65%;
+  }
+  .summary-table .label-col.sub-label {
+    padding-left: 28px;
+    font-size: 11px;
+    font-weight: normal;
+    color: #333;
   }
   .summary-table .value-col {
     width: auto;
@@ -442,31 +504,7 @@ export function ZoneSummaryPdfView({ reportData }: Props) {
                   <td className="label-col">Total (A1, A2, A3 & A4)</td>
                   <td className="value-col">{overallSummary.sectionA.total}</td>
                 </tr>
-                <tr>
-                  <td className="code-col">B1</td>
-                  <td className="label-col">Total No. of Bhawans</td>
-                  <td className="value-col">{overallSummary.sectionB.bhawans}</td>
-                </tr>
-                <tr>
-                  <td className="code-col">B2</td>
-                  <td className="label-col">Total No. of Buildings other than Bhawan</td>
-                  <td className="value-col">{overallSummary.sectionB.buildingsOtherThanBhawan}</td>
-                </tr>
-                <tr>
-                  <td className="code-col">B3</td>
-                  <td className="label-col">No. of Vacant Plots</td>
-                  <td className="value-col">{overallSummary.sectionB.vacantPlots}</td>
-                </tr>
-                <tr>
-                  <td className="code-col">B4</td>
-                  <td className="label-col">No Bhawan No Plots</td>
-                  <td className="value-col">{overallSummary.sectionB.noBhawanNoPlots}</td>
-                </tr>
-                <tr className="total-row">
-                  <td className="code-col"></td>
-                  <td className="label-col">Total (B1, B2, B3 & B4)</td>
-                  <td className="value-col">{overallSummary.sectionB.total}</td>
-                </tr>
+                <SectionBStructureRows sectionB={overallSummary.sectionB} />
               </tbody>
             </table>
 
@@ -652,31 +690,7 @@ function ZonePdfSection({ zone }: { zone: ZoneSummaryWithDetails }) {
               <td className="label-col">Total (A1, A2, A3 & A4)</td>
               <td className="value-col">{zone.sectionA.total}</td>
             </tr>
-            <tr>
-              <td className="code-col">B1</td>
-              <td className="label-col">Total No. of Bhawans</td>
-              <td className="value-col">{zone.sectionB.bhawans}</td>
-            </tr>
-            <tr>
-              <td className="code-col">B2</td>
-              <td className="label-col">Total No. of Buildings other than Bhawan</td>
-              <td className="value-col">{zone.sectionB.buildingsOtherThanBhawan}</td>
-            </tr>
-            <tr>
-              <td className="code-col">B3</td>
-              <td className="label-col">No. of Vacant Plots</td>
-              <td className="value-col">{zone.sectionB.vacantPlots}</td>
-            </tr>
-            <tr>
-              <td className="code-col">B4</td>
-              <td className="label-col">No Bhawan No Plots</td>
-              <td className="value-col">{zone.sectionB.noBhawanNoPlots}</td>
-            </tr>
-            <tr className="total-row">
-              <td className="code-col"></td>
-              <td className="label-col">Total (B1, B2, B3 & B4)</td>
-              <td className="value-col">{zone.sectionB.total}</td>
-            </tr>
+            <SectionBStructureRows sectionB={zone.sectionB} />
           </tbody>
         </table>
 

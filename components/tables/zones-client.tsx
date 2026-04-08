@@ -19,6 +19,7 @@ import {
   ZonesFilterBar,
   type ZoneListFilterValues,
 } from "@/components/zones/zones-filter-bar";
+import { ZonesBulkExcelControls } from "@/components/zones/zones-bulk-excel-controls";
 import { AppDataGrid } from "@/components/tables/app-data-grid";
 import IconButton from "@mui/material/IconButton";
 import Stack from "@mui/material/Stack";
@@ -483,6 +484,19 @@ export function ZonesClient({
           departments={departments}
           departmentsLoading={departmentsLoading}
           departmentsFetchError={departmentsFetchError}
+          toolbarAction={
+            canManage ? (
+              <ZonesBulkExcelControls
+                onImported={() => {
+                  void fetchZonesPage(
+                    listPage,
+                    debouncedSearch,
+                    appliedFilters,
+                  );
+                }}
+              />
+            ) : null
+          }
         />
 
       {canManage ? (

@@ -36,7 +36,7 @@ export default async function ZonesPage() {
       title="All Zones"
       description={
         canManage
-          ? "Define zones under publicity departments. Zone numbers are set manually (e.g. 1, 1A)."
+          ? "Define zones under publicity departments. Zone numbers are set manually (e.g. 1, 1A). Superadmins can seed or update zones in bulk from Excel (sample download next to search)."
           : "Zones under publicity departments. Contact a superadmin to add or change zones."
       }
       crumbs={crumbs}
