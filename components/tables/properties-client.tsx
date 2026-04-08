@@ -8,6 +8,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { PropertiesBulkExcelControls } from "@/components/properties/properties-bulk-excel-controls";
 import { PropertiesFilterBar } from "@/components/properties/properties-filter-bar";
 import { AppDataGrid } from "@/components/tables/app-data-grid";
 import {
@@ -288,16 +289,23 @@ export function PropertiesClient({ canManage }: { canManage: boolean }) {
         departmentsLoading={departmentsLoading}
         departmentsFetchError={departmentsFetchError}
         exportAction={
-          <Button
-            type="button"
-            variant="outline"
-            className="h-12 shrink-0 rounded-xl px-4"
-            disabled={exportLoading}
-            onClick={() => void dispatch(exportPropertiesExcel())}
-          >
-            <Download className="mr-2 size-4 shrink-0" />
-            {exportLoading ? "Exporting…" : "Export Excel"}
-          </Button>
+          <div className="flex flex-wrap items-stretch justify-end gap-2">
+            {canManage ? (
+              <PropertiesBulkExcelControls
+                onImported={() => void dispatch(fetchPropertiesList())}
+              />
+            ) : null}
+            <Button
+              type="button"
+              variant="outline"
+              className="h-12 shrink-0 rounded-xl px-4"
+              disabled={exportLoading}
+              onClick={() => void dispatch(exportPropertiesExcel())}
+            >
+              <Download className="mr-2 size-4 shrink-0" />
+              {exportLoading ? "Exporting…" : "Export Excel"}
+            </Button>
+          </div>
         }
       />
 

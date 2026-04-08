@@ -64,6 +64,20 @@ export async function backendFetch(path: string, init?: RequestInit) {
   });
 }
 
+/** POST `multipart/form-data` with JWT; do not set Content-Type (boundary is set automatically). */
+export async function backendFetchFormData(path: string, formData: FormData) {
+  const jar = await cookies();
+  const token = jar.get(AUTH_COOKIE)?.value;
+  const headers = new Headers();
+  if (token) headers.set("authorization", `Bearer ${token}`);
+
+  return backendRequest(path, {
+    method: "POST",
+    body: formData,
+    headers,
+  });
+}
+
 /** POST JSON without auth header (login / signup). */
 export async function backendPostUnauthenticated(
   path: string,
