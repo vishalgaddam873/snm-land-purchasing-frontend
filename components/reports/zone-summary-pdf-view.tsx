@@ -2,10 +2,28 @@
 
 import {
   FullReportData,
+  PropertyTableRowHighlight,
   ZoneSummaryWithDetails,
   bhawanTypeLabel,
   vacantPlotStatusLabel,
 } from "./zone-summary-types";
+
+function zoneDataCellClass(
+  highlight: PropertyTableRowHighlight | undefined
+): string {
+  switch (highlight) {
+    case "tbr":
+      return "data-zone-tbr";
+    case "adjoining":
+      return "data-zone-adjoining";
+    case "additional":
+      return "data-zone-additional";
+    case "vacant":
+      return "data-zone-vacant";
+    default:
+      return "";
+  }
+}
 
 function remarkHtmlToText(input: string): string {
   const raw = String(input ?? "").trim();
@@ -155,7 +173,7 @@ const styles = `
     text-align: center;
     margin-bottom: 24px;
     padding: 12px;
-    background: #c5e0b4;
+    background: #92CDDC;
     border: 1px solid #666;
   }
   .index-table {
@@ -170,7 +188,7 @@ const styles = `
     text-align: left;
   }
   .index-table th {
-    background: #d9ead3;
+    background: #92CDDC;
     font-weight: bold;
     text-align: center;
   }
@@ -193,7 +211,7 @@ const styles = `
     text-align: center;
     margin-bottom: 20px;
     padding: 10px;
-    background: #c5e0b4;
+    background: #C4D79B;
     border: 1px solid #666;
     text-decoration: underline;
   }
@@ -238,6 +256,15 @@ const styles = `
     background: #d9d9d9;
     font-weight: bold;
   }
+  .summary-table tr.summary-row-tbr td {
+    background: #C4D79B;
+  }
+  .summary-table tr.summary-row-adjoining td {
+    background: #DA9694;
+  }
+  .summary-table tr.summary-row-additional td {
+    background: #A6A6A6;
+  }
 
   /* Property Utilization */
   .utilization-title {
@@ -246,7 +273,7 @@ const styles = `
     text-align: center;
     margin-bottom: 12px;
     padding: 8px;
-    background: #f4cccc;
+    background: #E6B8B7;
     border: 1px solid #666;
   }
   .utilization-table {
@@ -262,13 +289,16 @@ const styles = `
     text-align: left;
   }
   .utilization-table th {
-    background: #f4cccc;
+    background: #E6B8B7;
     font-weight: bold;
   }
   .utilization-table .sub-header {
-    background: #fce5cd;
+    background: #E6B8B7;
     font-weight: bold;
     text-align: center;
+  }
+  .utilization-table tr.utilization-row-vacant td {
+    background: #E2FC20;
   }
 
   /* ZONE DATA TABLE */
@@ -301,7 +331,7 @@ const styles = `
     word-break: break-word;
   }
   .data-table th {
-    background: #dabeda;
+    background: #CCC0DA;
     font-weight: bold;
     text-align: center;
   }
@@ -313,12 +343,20 @@ const styles = `
     width: 35px;
     text-align: center;
   }
-  .data-table tbody tr:nth-child(even) {
-    background: #f8f8f8;
-  }
   .data-table td[rowspan] {
-    background: #fff;
     border-bottom: 1px solid #555;
+  }
+  .data-table td.data-zone-tbr {
+    background: #C4D79B !important;
+  }
+  .data-table td.data-zone-adjoining {
+    background: #DA9694 !important;
+  }
+  .data-table td.data-zone-additional {
+    background: #A6A6A6 !important;
+  }
+  .data-table td.data-zone-vacant {
+    background: #E2FC20 !important;
   }
 
   /* ZONE SUMMARY */
@@ -351,7 +389,7 @@ const styles = `
     font-weight: bold;
     margin-bottom: 8px;
     padding: 6px 10px;
-    background: #e8e8e8;
+    background: #CCC0DA;
     border: 1px solid #888;
     border-radius: 3px;
   }
@@ -372,7 +410,7 @@ const styles = `
     word-break: break-word;
   }
   .detail-table th {
-    background: #d0d0d0;
+    background: #CCC0DA;
     font-weight: bold;
     text-align: center;
   }
@@ -380,8 +418,14 @@ const styles = `
     width: 40px;
     text-align: center;
   }
-  .detail-table tbody tr:nth-child(even) {
-    background: #f8f8f8;
+  .detail-table.detail-body-additional tbody tr {
+    background: #A6A6A6;
+  }
+  .detail-table.detail-body-tbr tbody tr {
+    background: #C4D79B;
+  }
+  .detail-table.detail-body-vacant tbody tr {
+    background: #E2FC20;
   }
 
   @media print {
@@ -484,17 +528,17 @@ export function ZoneSummaryPdfView({ reportData }: Props) {
                   <td className="label-col">No. of Registered Branches</td>
                   <td className="value-col">{overallSummary.sectionA.registeredBranches}</td>
                 </tr>
-                <tr>
+                <tr className="summary-row-tbr">
                   <td className="code-col">A2</td>
                   <td className="label-col">No. of Branches to be Registered</td>
                   <td className="value-col">{overallSummary.sectionA.branchesToBeRegistered}</td>
                 </tr>
-                <tr>
+                <tr className="summary-row-adjoining">
                   <td className="code-col">A3</td>
                   <td className="label-col">No. of Adjoining Plots</td>
                   <td className="value-col">{overallSummary.sectionA.adjoiningPlots}</td>
                 </tr>
-                <tr>
+                <tr className="summary-row-additional">
                   <td className="code-col">A4</td>
                   <td className="label-col">No. of Additional Units (Branches having more than one Land + Bhawan)</td>
                   <td className="value-col">{overallSummary.sectionA.additionalUnits}</td>
@@ -530,7 +574,7 @@ export function ZoneSummaryPdfView({ reportData }: Props) {
                   <td>3. Sheds</td>
                   <td className="value-col">{overallSummary.propertyUtilization.sheds}</td>
                 </tr>
-                <tr>
+                <tr className="utilization-row-vacant">
                   <td>4. Vacant</td>
                   <td className="value-col">{overallSummary.propertyUtilization.vacant}</td>
                 </tr>
@@ -621,34 +665,59 @@ function ZonePdfSection({ zone }: { zone: ZoneSummaryWithDetails }) {
                 const info = mergeInfo.get(idx);
                 const isFirst = info?.isFirstOfGroup ?? true;
                 const rowSpan = info?.rowSpan ?? 1;
+                const zc = zoneDataCellClass(row.rowHighlight);
 
                 return (
-                  <tr key={row.sno}>
+                  <tr key={`${zone.zoneId}-${idx}`}>
                     {isFirst && (
                       <>
-                        <td className="sno" rowSpan={rowSpan} style={{ verticalAlign: "middle" }}>
+                        <td
+                          className={["sno", zc].filter(Boolean).join(" ")}
+                          rowSpan={rowSpan}
+                          style={{ verticalAlign: "middle" }}
+                        >
                           {row.sno}
                         </td>
-                        <td className="zno" rowSpan={rowSpan} style={{ verticalAlign: "middle" }}>
+                        <td
+                          className={["zno", zc].filter(Boolean).join(" ")}
+                          rowSpan={rowSpan}
+                          style={{ verticalAlign: "middle" }}
+                        >
                           {row.zoneNumber}
                         </td>
-                        <td rowSpan={rowSpan} style={{ verticalAlign: "middle" }}>
+                        <td
+                          className={zc}
+                          rowSpan={rowSpan}
+                          style={{ verticalAlign: "middle" }}
+                        >
                           {row.zoneName}
                         </td>
-                        <td rowSpan={rowSpan} style={{ verticalAlign: "middle", textAlign: "center" }}>
+                        <td
+                          className={zc}
+                          rowSpan={rowSpan}
+                          style={{ verticalAlign: "middle", textAlign: "center" }}
+                        >
                           {row.sectorNumber || "NA"}
                         </td>
-                        <td rowSpan={rowSpan} style={{ verticalAlign: "middle" }}>
+                        <td
+                          className={zc}
+                          rowSpan={rowSpan}
+                          style={{ verticalAlign: "middle" }}
+                        >
                           {row.branchName}
                         </td>
                       </>
                     )}
-                    <td>{row.propertyName}</td>
-                    <td>{row.areaHeld}</td>
-                    <td style={{ textAlign: "center" }}>{row.constructionStatus}</td>
-                    <td>{row.locatedAt}</td>
-                    <td>{row.bhawanType}</td>
-                    <td className="remarks">{remarkHtmlToText(row.remarks)}</td>
+                    <td className={zc}>{row.propertyName}</td>
+                    <td className={zc}>{row.areaHeld}</td>
+                    <td className={zc} style={{ textAlign: "center" }}>
+                      {row.constructionStatus}
+                    </td>
+                    <td className={zc}>{row.locatedAt}</td>
+                    <td className={zc}>{row.bhawanType}</td>
+                    <td className={["remarks", zc].filter(Boolean).join(" ")}>
+                      {remarkHtmlToText(row.remarks)}
+                    </td>
                   </tr>
                 );
               })}
@@ -670,17 +739,17 @@ function ZonePdfSection({ zone }: { zone: ZoneSummaryWithDetails }) {
               <td className="label-col">No. of Registered Branches</td>
               <td className="value-col">{zone.sectionA.registeredBranches}</td>
             </tr>
-            <tr>
+            <tr className="summary-row-tbr">
               <td className="code-col">A2</td>
               <td className="label-col">No. of Branches to be Registered</td>
               <td className="value-col">{zone.sectionA.branchesToBeRegistered}</td>
             </tr>
-            <tr>
+            <tr className="summary-row-adjoining">
               <td className="code-col">A3</td>
               <td className="label-col">No. of Adjoining Plots</td>
               <td className="value-col">{zone.sectionA.adjoiningPlots}</td>
             </tr>
-            <tr>
+            <tr className="summary-row-additional">
               <td className="code-col">A4</td>
               <td className="label-col">No. of Additional Units (Branches having more than one Land + Bhawan)</td>
               <td className="value-col">{zone.sectionA.additionalUnits}</td>
@@ -698,7 +767,7 @@ function ZonePdfSection({ zone }: { zone: ZoneSummaryWithDetails }) {
         {zone.sectionA.additionalUnits > 0 && zone.additionalUnitsDetails.length > 0 && (
           <div className="detail-section">
             <div className="detail-title">Details of Additional Units (Bhawan/Plot)</div>
-            <table className="detail-table">
+            <table className="detail-table detail-body-additional">
               <thead>
                 <tr>
                   <th className="sno">S.No.</th>
@@ -725,7 +794,7 @@ function ZonePdfSection({ zone }: { zone: ZoneSummaryWithDetails }) {
         {zone.sectionA.branchesToBeRegistered > 0 && zone.branchesToBeRegisteredDetails.length > 0 && (
           <div className="detail-section">
             <div className="detail-title">New Branches to be Registered</div>
-            <table className="detail-table">
+            <table className="detail-table detail-body-tbr">
               <thead>
                 <tr>
                   <th className="sno">S.No.</th>
@@ -756,7 +825,7 @@ function ZonePdfSection({ zone }: { zone: ZoneSummaryWithDetails }) {
         {zone.sectionB.vacantPlots > 0 && zone.vacantPlotsDetails.length > 0 && (
           <div className="detail-section">
             <div className="detail-title">Details of Vacant Plots</div>
-            <table className="detail-table">
+            <table className="detail-table detail-body-vacant">
               <thead>
                 <tr>
                   <th className="sno">S.No.</th>

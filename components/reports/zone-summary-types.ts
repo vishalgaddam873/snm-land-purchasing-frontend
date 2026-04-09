@@ -1,3 +1,9 @@
+export type PropertyTableRowHighlight =
+  | "tbr"
+  | "adjoining"
+  | "additional"
+  | "vacant";
+
 export type PropertyTableRow = {
   sno: number;
   zoneNumber: string;
@@ -10,6 +16,7 @@ export type PropertyTableRow = {
   locatedAt: string;
   bhawanType: string;
   remarks: string;
+  rowHighlight?: PropertyTableRowHighlight;
 };
 
 export type PropertyDetailRow = {
