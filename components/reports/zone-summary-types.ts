@@ -93,6 +93,9 @@ export type ZoneIndexEntry = {
   sno: number;
   zoneNumber: string;
   zoneName: string;
+  /** Optional from API; Summary Report UI fills these client-side for INDEX / PDF. */
+  pageFrom?: number;
+  pageTo?: number;
 };
 
 export type FullReportData = {

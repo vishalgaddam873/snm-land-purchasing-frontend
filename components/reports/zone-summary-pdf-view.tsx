@@ -1,5 +1,6 @@
 "use client";
 
+import { useLayoutEffect, useMemo, useState, type CSSProperties } from "react";
 import {
   FullReportData,
   PropertyTableRowHighlight,
@@ -7,6 +8,8 @@ import {
   bhawanTypeLabel,
   vacantPlotStatusLabel,
 } from "./zone-summary-types";
+import { computeIndexPageRanges } from "@/lib/reports/compute-index-page-ranges";
+import { measureZoneIndexPageRanges } from "@/lib/reports/measure-zone-index-pages";
 
 function zoneDataCellClass(
   highlight: PropertyTableRowHighlight | undefined
@@ -133,12 +136,16 @@ const styles = `
     }
   }
 
-  /* Pages WITH page numbers (Zone data + zone summary) */
+  /*
+   * Zone-only sheet counter (INDEX + Final Summary use @page noNumber — they must not advance this).
+   * counter(page) always counts every physical sheet; in Chrome, resetting it for margin boxes is unreliable.
+   */
   @page reportPage {
     size: A4 landscape;
     margin: 12mm;
+    counter-increment: lp-zone-sheet 1;
     @top-center {
-      content: counter(page);
+      content: counter(lp-zone-sheet);
       font-family: Arial, 'Helvetica Neue', Helvetica, sans-serif;
       font-size: 10px;
       color: #000;
@@ -200,6 +207,12 @@ const styles = `
     width: 80px;
     text-align: center;
   }
+  .index-table .lp-report-index-page-col {
+    width: 110px;
+    min-width: 110px;
+    text-align: center;
+    white-space: nowrap;
+  }
 
   /* FINAL SUMMARY PAGE */
   .final-summary-page {
@@ -257,30 +270,49 @@ const styles = `
     font-weight: bold;
   }
   .summary-table tr.summary-row-tbr td {
-    background: #C4D79B;
+    background: #fff;
   }
   .summary-table tr.summary-row-adjoining td {
-    background: #DA9694;
+    background: #fff;
   }
   .summary-table tr.summary-row-additional td {
-    background: #A6A6A6;
+    background: #fff;
   }
 
-  /* Property Utilization */
+  /* Property Utilization (reference PDF palette) */
+  .lp-utilization-keep-together {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
   .utilization-title {
     font-size: 14px;
     font-weight: bold;
     text-align: center;
     margin-bottom: 12px;
     padding: 8px;
-    background: #E6B8B7;
+    background: #e2c2c2;
     border: 1px solid #666;
+    text-decoration: underline;
   }
   .utilization-table {
     width: 100%;
     border-collapse: collapse;
     font-size: 12px;
     margin-bottom: 24px;
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+  .utilization-table tbody {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+  .utilization-table tr {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+  .utilization-table tr.utilization-row-vacant {
+    page-break-before: avoid;
+    break-before: avoid;
   }
   .utilization-table th,
   .utilization-table td {
@@ -289,16 +321,19 @@ const styles = `
     text-align: left;
   }
   .utilization-table th {
-    background: #E6B8B7;
+    background: #fff;
     font-weight: bold;
   }
-  .utilization-table .sub-header {
-    background: #E6B8B7;
+  .utilization-table tr.utilization-row-total td {
+    background: #e1ead2;
+  }
+  .utilization-table .sub-header td {
+    background: #ffcc33;
     font-weight: bold;
     text-align: center;
   }
   .utilization-table tr.utilization-row-vacant td {
-    background: #E2FC20;
+    background: #fff;
   }
 
   /* ZONE DATA TABLE */
@@ -364,10 +399,6 @@ const styles = `
     margin-bottom: 40px;
   }
 
-  .zone-pages-start {
-    /* Start numbering from 1 on the first zone page */
-    counter-reset: page 0;
-  }
   .zone-header {
     font-size: 16px;
     font-weight: bold;
@@ -455,14 +486,135 @@ const styles = `
     .zone-summary-page {
       page: reportPage;
     }
+
+    /*
+     * First zone sheet should show "1" after INDEX + Final Summary (incl. Summary of Property Details).
+     * Reset lp-zone-sheet after front matter; also on .zone-pages-start so single-zone reports work.
+     */
+    .lp-report-zone-numbering-start,
+    .zone-pages-start {
+      counter-reset: lp-zone-sheet 0;
+      /* Fallback where @page counter-increment is not applied to lp-zone-sheet */
+      counter-set: lp-zone-sheet 0;
+    }
   }
 `;
+
+/** Zero-size node after Final Summary so print layout applies counter reset before zone blocks. */
+const ZONE_NUMBERING_ANCHOR_STYLE: CSSProperties = {
+  height: 0,
+  overflow: "hidden",
+  margin: 0,
+  padding: 0,
+  border: 0,
+  fontSize: 0,
+  lineHeight: 0,
+};
 
 type Props = {
   reportData: FullReportData | null;
 };
 
+/** Inline-only styles so INDEX columns always render (some browsers drop `<style>` blocks that mix `@page` + invalid rules). */
+const INDEX_TABLE_STYLE: CSSProperties = {
+  width: "100%",
+  borderCollapse: "collapse",
+  fontSize: 12,
+  tableLayout: "fixed",
+};
+
+function indexCellStyle(align: "left" | "center" = "left"): CSSProperties {
+  return {
+    border: "1px solid #555",
+    padding: "8px 10px",
+    textAlign: align,
+    verticalAlign: "middle",
+    background: "#fff",
+    color: "#000",
+  };
+}
+
+function indexHeaderStyle(align: "left" | "center" = "left"): CSSProperties {
+  return {
+    ...indexCellStyle(align),
+    background: "#92CDDC",
+    fontWeight: 700,
+  };
+}
+
 export function ZoneSummaryPdfView({ reportData }: Props) {
+  const [domPageRanges, setDomPageRanges] = useState<Map<
+    string,
+    { pageFrom: number; pageTo: number }
+  > | null>(null);
+
+  useLayoutEffect(() => {
+    if (!reportData?.zoneSummaries?.length) {
+      const clearId = requestAnimationFrame(() => setDomPageRanges(null));
+      return () => cancelAnimationFrame(clearId);
+    }
+
+    const summaries = reportData.zoneSummaries;
+
+    const measure = () => {
+      const root = document.getElementById("pdf-content");
+      if (!root) return;
+      const zps = root.querySelector(".zone-pages-start");
+      if (!zps || !(zps instanceof HTMLElement)) return;
+      const ids = summaries.map((z) => z.zoneId);
+      const m = measureZoneIndexPageRanges(zps, ids);
+      setDomPageRanges(m);
+    };
+
+    let raf2 = 0;
+    const raf1 = requestAnimationFrame(() => {
+      raf2 = requestAnimationFrame(measure);
+    });
+
+    const root = document.getElementById("pdf-content");
+    const zps = root?.querySelector(".zone-pages-start");
+    const ro =
+      zps instanceof HTMLElement
+        ? new ResizeObserver(() => {
+            requestAnimationFrame(measure);
+          })
+        : null;
+    if (ro && zps) {
+      ro.observe(zps);
+      if (root) ro.observe(root);
+    }
+
+    if (typeof window !== "undefined") {
+      window.addEventListener("beforeprint", measure);
+    }
+
+    return () => {
+      cancelAnimationFrame(raf1);
+      if (raf2) cancelAnimationFrame(raf2);
+      ro?.disconnect();
+      if (typeof window !== "undefined") {
+        window.removeEventListener("beforeprint", measure);
+      }
+    };
+  }, [reportData]);
+
+  /** Must run before any early return (Rules of Hooks). */
+  const indexWithPages = useMemo(() => {
+    const summaries = reportData?.zoneSummaries;
+    if (!summaries?.length) return [];
+    const fallback = computeIndexPageRanges(summaries);
+    return summaries.map((z, i) => {
+      const dom = domPageRanges?.get(z.zoneId);
+      return {
+        sno: i + 1,
+        zoneNumber: z.zoneNumber,
+        zoneName: z.zoneName,
+        pageFrom: dom?.pageFrom ?? fallback[i]?.pageFrom ?? 1,
+        pageTo: dom?.pageTo ?? fallback[i]?.pageTo ?? 1,
+      };
+    });
+  }, [reportData, domPageRanges]);
+
   if (!reportData || reportData.zoneSummaries.length === 0) {
     return (
       <div className="p-8 text-center text-muted-foreground">
@@ -480,8 +632,8 @@ export function ZoneSummaryPdfView({ reportData }: Props) {
     );
   }
 
-  const { index, overallSummary, zoneSummaries } = reportData;
-  
+  const { overallSummary, zoneSummaries } = reportData;
+
   // Hide INDEX, Final Summary, and Summary of Property Details when a specific zone is selected
   const isSpecificZone = zoneSummaries.length === 1;
 
@@ -493,22 +645,85 @@ export function ZoneSummaryPdfView({ reportData }: Props) {
         {!isSpecificZone && (
           <div className="index-page page-break">
             <div className="index-title">INDEX</div>
-            <table className="index-table">
+            <table className="index-table" style={INDEX_TABLE_STYLE}>
+              <colgroup>
+                <col style={{ width: "64px" }} />
+                <col style={{ width: "88px" }} />
+                <col />
+                <col style={{ width: "64px" }} />
+                <col style={{ width: "64px" }} />
+                <col style={{ width: "16%" }} />
+              </colgroup>
               <thead>
                 <tr>
-                  <th className="sno">S. No.</th>
-                  <th className="zone-no">Zone No.</th>
-                  <th>Zone Name</th>
-                  <th>Remarks</th>
+                  <th
+                    rowSpan={2}
+                    scope="col"
+                    style={indexHeaderStyle("center")}
+                  >
+                    S. No.
+                  </th>
+                  <th
+                    rowSpan={2}
+                    scope="col"
+                    style={indexHeaderStyle("center")}
+                  >
+                    Zone No.
+                  </th>
+                  <th rowSpan={2} scope="col" style={indexHeaderStyle("left")}>
+                    Zone Name
+                  </th>
+                  <th
+                    colSpan={2}
+                    scope="colgroup"
+                    style={indexHeaderStyle("center")}
+                  >
+                    Page No
+                  </th>
+                  <th rowSpan={2} scope="col" style={indexHeaderStyle("left")}>
+                    Remarks
+                  </th>
+                </tr>
+                <tr>
+                  <th scope="col" style={indexHeaderStyle("center")}>
+                    From
+                  </th>
+                  <th scope="col" style={indexHeaderStyle("center")}>
+                    To
+                  </th>
                 </tr>
               </thead>
               <tbody>
-                {index.map((z) => (
+                {indexWithPages.map((z) => (
                   <tr key={z.sno}>
-                    <td className="sno">{z.sno}.</td>
-                    <td className="zone-no">{z.zoneNumber}</td>
-                    <td>{z.zoneName}</td>
-                    <td></td>
+                    <td style={{ ...indexCellStyle("center"), width: "64px" }}>
+                      {z.sno}.
+                    </td>
+                    <td style={{ ...indexCellStyle("center"), width: "88px" }}>
+                      {z.zoneNumber}
+                    </td>
+                    <td style={indexCellStyle("left")}>{z.zoneName}</td>
+                    <td
+                      style={{
+                        ...indexCellStyle("center"),
+                        width: "64px",
+                        minWidth: "64px",
+                        fontWeight: 600,
+                      }}
+                    >
+                      {z.pageFrom}
+                    </td>
+                    <td
+                      style={{
+                        ...indexCellStyle("center"),
+                        width: "64px",
+                        minWidth: "64px",
+                        fontWeight: 600,
+                      }}
+                    >
+                      {z.pageTo}
+                    </td>
+                    <td style={indexCellStyle("left")} />
                   </tr>
                 ))}
               </tbody>
@@ -552,34 +767,42 @@ export function ZoneSummaryPdfView({ reportData }: Props) {
               </tbody>
             </table>
 
-            <div className="utilization-title">Summary of Property Details</div>
-            <table className="utilization-table">
-              <tbody>
-                <tr>
-                  <td className="label-col"><strong>Total No. of Plots</strong></td>
-                  <td className="value-col"><strong>{overallSummary.propertyUtilization.totalPlots}</strong></td>
-                </tr>
-                <tr className="sub-header">
-                  <td colSpan={2}>Utilization of {overallSummary.propertyUtilization.totalPlots} Plots</td>
-                </tr>
-                <tr>
-                  <td>1. Bhawans</td>
-                  <td className="value-col">{overallSummary.propertyUtilization.bhawans}</td>
-                </tr>
-                <tr>
-                  <td>2. Buildings</td>
-                  <td className="value-col">{overallSummary.propertyUtilization.buildings}</td>
-                </tr>
-                <tr>
-                  <td>3. Sheds</td>
-                  <td className="value-col">{overallSummary.propertyUtilization.sheds}</td>
-                </tr>
-                <tr className="utilization-row-vacant">
-                  <td>4. Vacant</td>
-                  <td className="value-col">{overallSummary.propertyUtilization.vacant}</td>
-                </tr>
-              </tbody>
-            </table>
+            <div className="lp-utilization-keep-together">
+              <div className="utilization-title">Summary of Property Details</div>
+              <table className="utilization-table">
+                <tbody>
+                  <tr className="utilization-row-total">
+                    <td className="label-col"><strong>Total No. of Plots</strong></td>
+                    <td className="value-col"><strong>{overallSummary.propertyUtilization.totalPlots}</strong></td>
+                  </tr>
+                  <tr className="sub-header">
+                    <td colSpan={2}>Utilization of {overallSummary.propertyUtilization.totalPlots} Plots</td>
+                  </tr>
+                  <tr>
+                    <td>1. Bhawans</td>
+                    <td className="value-col">{overallSummary.propertyUtilization.bhawans}</td>
+                  </tr>
+                  <tr>
+                    <td>2. Buildings</td>
+                    <td className="value-col">{overallSummary.propertyUtilization.buildings}</td>
+                  </tr>
+                  <tr>
+                    <td>3. Sheds</td>
+                    <td className="value-col">{overallSummary.propertyUtilization.sheds}</td>
+                  </tr>
+                  <tr className="utilization-row-vacant">
+                    <td>4. Vacant</td>
+                    <td className="value-col">{overallSummary.propertyUtilization.vacant}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            {/* End of front matter: reset zone-only margin counter before first zone table */}
+            <div
+              className="lp-report-zone-numbering-start"
+              aria-hidden
+              style={ZONE_NUMBERING_ANCHOR_STYLE}
+            />
           </div>
         )}
 
@@ -640,7 +863,10 @@ function ZonePdfSection({ zone }: { zone: ZoneSummaryWithDetails }) {
     <>
       {/* Zone Data Table */}
       {zone.allProperties.length > 0 && (
-        <div className="zone-data-page page-break">
+        <div
+          className="zone-data-page page-break"
+          data-lp-zone-id={zone.zoneId}
+        >
           <div className="zone-data-title">
             Zone {zone.zoneNumber} : {zone.zoneName}
           </div>
@@ -727,7 +953,10 @@ function ZonePdfSection({ zone }: { zone: ZoneSummaryWithDetails }) {
       )}
 
       {/* Zone Summary */}
-      <div className="zone-summary-page page-break">
+      <div
+        className="zone-summary-page page-break"
+        data-lp-zone-id={zone.zoneId}
+      >
         <div className="zone-header">
           Summary : Zone {zone.zoneNumber} ({zone.zoneName})
         </div>
