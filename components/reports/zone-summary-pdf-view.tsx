@@ -381,18 +381,6 @@ const styles = `
   .data-table td[rowspan] {
     border-bottom: 1px solid #555;
   }
-  .data-table td.data-zone-tbr {
-    background: #C4D79B !important;
-  }
-  .data-table td.data-zone-adjoining {
-    background: #DA9694 !important;
-  }
-  .data-table td.data-zone-additional {
-    background: #A6A6A6 !important;
-  }
-  .data-table td.data-zone-vacant {
-    background: #E2FC20 !important;
-  }
 
   /* ZONE SUMMARY */
   .zone-summary-page {
