@@ -67,6 +67,8 @@ type PropertyAnalyticsResponse = {
     vacantPlots: number;
     /** Present from API v2; older responses omit and UI treats as 0. */
     vacantPlotsFitForConstruction?: number;
+    /** Self made sheds under B4 (with vacant plot status). */
+    vacantPlotsSelfMadeShed?: number;
     notFitForConstructionPlots: number;
     noBhawanNoPlots: number;
     total: number;
@@ -532,7 +534,7 @@ export function DashboardPropertyAnalytics() {
                 <KpiCard
                   title="Not fit plots"
                   value={data.sectionB.notFitForConstructionPlots}
-                  hint="Vacant plots marked not fit for construction"
+                  hint="Vacant plots & self made sheds (with status) marked not fit"
                   icon={FileWarning}
                   accent="from-rose-500/20 to-transparent"
                 />
@@ -726,8 +728,10 @@ export function DashboardPropertyAnalytics() {
                 adjoining and additional rows are separate units. B1 is completed
                 bhawan plus shed; B3 is bhawan under construction only. B2 counts
                 bhawan type “building” only (self-made shed and NA are not in B1–B3).
-                B4 lists all vacant plots; indented rows are fit vs not fit for
-                construction. The bottom total is B1,B2,B3, B4 & B5 (no overlap).
+                B4 lists vacant plots plus self made sheds that have a vacant plot
+                status; indented rows include fit / not fit counts and how many of
+                B4 are self made sheds. The bottom total is B1,B2,B3, B4 & B5 (no
+                overlap).
               </p>
             </>
           ) : null}
@@ -829,9 +833,14 @@ function structureLandTypeTableRows(
   const fit = data.sectionB.vacantPlotsFitForConstruction ?? 0;
   const notFit = data.sectionB.notFitForConstructionPlots;
   const vacantTotal = data.sectionB.vacantPlots;
+  const sms = data.sectionB.vacantPlotsSelfMadeShed ?? 0;
   const subRows: { label: string; value: number }[] = [
     { label: "Fit for construction", value: fit },
     { label: "Not fit for construction", value: notFit },
+    {
+      label: "Self made sheds (with vacant plot status)",
+      value: sms,
+    },
   ];
   return [
     {

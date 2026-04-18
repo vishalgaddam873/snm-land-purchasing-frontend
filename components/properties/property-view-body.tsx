@@ -3,6 +3,7 @@
 import { PropertyRemarksDisplay } from "@/components/properties/property-remarks-display";
 import {
   bhawanLabel,
+  bhawanTypeAllowsVacantPlotStatus,
   branchNameOnly,
   constructionLabel,
   labelFromSnake,
@@ -88,7 +89,7 @@ export function PropertyViewBody({
           <Field label="Bhawan type">
             {bhawanLabel(property.bhawanType)}
           </Field>
-          {property.bhawanType === "vacant_plot" ? (
+          {bhawanTypeAllowsVacantPlotStatus(property.bhawanType) ? (
             <Field label="Vacant plot status">
               {vacantPlotStatusLabel(
                 property.bhawanType,

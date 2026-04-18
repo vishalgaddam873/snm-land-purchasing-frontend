@@ -17,6 +17,7 @@ import {
 } from "@/components/properties/property-remarks-editor";
 import { Textarea } from "@/components/ui/textarea";
 import {
+  bhawanTypeAllowsVacantPlotStatus,
   branchIdValue,
   branchNameOnly,
   branchOptionId,
@@ -124,7 +125,7 @@ export function PropertyEditForm({
       registrationType: String(form.get("registrationType")),
     };
 
-    if (bhawanTypeVal === "vacant_plot") {
+    if (bhawanTypeAllowsVacantPlotStatus(bhawanTypeVal)) {
       const vps = String(form.get("vacantPlotStatus") ?? "").trim();
       body.vacantPlotStatus = vps.length ? vps : null;
     } else {
@@ -303,7 +304,7 @@ export function PropertyEditForm({
             <option value="na">NA</option>
           </select>
         </div>
-        {bhawanType === "vacant_plot" ? (
+        {bhawanTypeAllowsVacantPlotStatus(bhawanType) ? (
           <div className={`${field} md:col-span-1 lg:col-span-3`}>
             <Label htmlFor="vacantPlotStatus" className="text-foreground">
               Vacant plot status

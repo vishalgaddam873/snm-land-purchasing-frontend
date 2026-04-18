@@ -72,6 +72,7 @@ function SectionBStructureRows({
 }) {
   const fit = sectionB.vacantPlotsFitForConstruction ?? 0;
   const notFit = sectionB.notFitForConstruction;
+  const sms = sectionB.vacantPlotsSelfMadeShed ?? 0;
   return (
     <>
       <tr>
@@ -105,6 +106,13 @@ function SectionBStructureRows({
         <td className="code-col"></td>
         <td className="label-col sub-label">Not fit for construction</td>
         <td className="value-col">{notFit}</td>
+      </tr>
+      <tr>
+        <td className="code-col"></td>
+        <td className="label-col sub-label">
+          Self made sheds (with vacant plot status)
+        </td>
+        <td className="value-col">{sms}</td>
       </tr>
       <tr>
         <td className="code-col">B5</td>
@@ -408,7 +416,7 @@ const styles = `
     font-weight: bold;
     margin-bottom: 8px;
     padding: 6px 10px;
-    background: #CCC0DA;
+    background: #E5EEE4;
     border: 1px solid #888;
     border-radius: 3px;
   }
@@ -438,7 +446,7 @@ const styles = `
     text-align: center;
   }
   .detail-table.detail-body-additional tbody tr {
-    background: #A6A6A6;
+    background: #BFBFBF;
   }
   .detail-table.detail-body-tbr tbody tr {
     background: #C4D79B;
@@ -1058,8 +1066,10 @@ function ZonePdfSection({ zone }: { zone: ZoneSummaryWithDetails }) {
                     <td>{row.branchName}</td>
                     <td>{row.areaHeld}</td>
                     <td className="remarks">
-                      {vacantPlotStatusLabel(row.vacantPlotStatus) ||
-                        remarkHtmlToText(row.remarks)}
+                      {row.bhawanType === "self_made_shed"
+                        ? `Self made shed — ${vacantPlotStatusLabel(row.vacantPlotStatus) || remarkHtmlToText(row.remarks)}`
+                        : vacantPlotStatusLabel(row.vacantPlotStatus) ||
+                          remarkHtmlToText(row.remarks)}
                     </td>
                   </tr>
                 ))}

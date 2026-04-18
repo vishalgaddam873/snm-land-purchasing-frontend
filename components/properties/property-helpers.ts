@@ -29,7 +29,7 @@ export type PropertyRow = {
   constructionStatus: string;
   locatedAt: string;
   bhawanType: string;
-  /** Only when bhawanType is vacant_plot */
+  /** When bhawanType is vacant_plot or self_made_shed */
   vacantPlotStatus?: string | null;
   remarks: string;
   status: "active" | "inactive" | "deleted";
@@ -49,11 +49,15 @@ export const FILTER_ALL_BRANCHES = "__all_branches__";
 /** Sentinel for "no enum filter" on the properties list (branch uses FILTER_ALL_BRANCHES). */
 export const PROPERTY_ENUM_FILTER_ALL = "__property_enum_all__";
 
+export function bhawanTypeAllowsVacantPlotStatus(bhawanType: string): boolean {
+  return bhawanType === "vacant_plot" || bhawanType === "self_made_shed";
+}
+
 export function vacantPlotStatusLabel(
   bhawanType: string,
   status: string | null | undefined,
 ): string {
-  if (bhawanType !== "vacant_plot") return "—";
+  if (!bhawanTypeAllowsVacantPlotStatus(bhawanType)) return "—";
   if (status == null || !String(status).trim()) return "—";
   const m: Record<string, string> = {
     fit_for_construction: "Fit for construction",
