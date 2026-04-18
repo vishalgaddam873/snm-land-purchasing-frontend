@@ -72,7 +72,6 @@ function SectionBStructureRows({
 }) {
   const fit = sectionB.vacantPlotsFitForConstruction ?? 0;
   const notFit = sectionB.notFitForConstruction;
-  const sms = sectionB.vacantPlotsSelfMadeShed ?? 0;
   return (
     <>
       <tr>
@@ -106,13 +105,6 @@ function SectionBStructureRows({
         <td className="code-col"></td>
         <td className="label-col sub-label">Not fit for construction</td>
         <td className="value-col">{notFit}</td>
-      </tr>
-      <tr>
-        <td className="code-col"></td>
-        <td className="label-col sub-label">
-          Self made sheds (with vacant plot status)
-        </td>
-        <td className="value-col">{sms}</td>
       </tr>
       <tr>
         <td className="code-col">B5</td>
