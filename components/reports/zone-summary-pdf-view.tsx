@@ -452,7 +452,7 @@ const styles = `
     background: #C4D79B;
   }
   .detail-table.detail-body-vacant tbody tr {
-    background: #E2FC20;
+    background: #FEFD99;
   }
 
   @media print {
