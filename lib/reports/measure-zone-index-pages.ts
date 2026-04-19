@@ -52,6 +52,45 @@ export function measureFrontMatterPageCount(root: HTMLElement): number {
   return total;
 }
 
+/** Display page numbers: first sheet of Final Summary (after INDEX) is page 1. */
+export type IndexFrontMatterDisplayRanges = {
+  finalSummaryCore: { pageFrom: number; pageTo: number };
+  allZonesProperties: { pageFrom: number; pageTo: number } | null;
+};
+
+/**
+ * Page ranges for INDEX rows under “Overall Summary” (Final Summary block vs consolidated table).
+ */
+export function measureIndexFrontMatterDisplayRanges(
+  root: HTMLElement,
+): IndexFrontMatterDisplayRanges {
+  const core = root.querySelector(".lp-report-index-final-summary-core");
+  const master = root.querySelector(".lp-report-index-zone-master-block");
+
+  const corePages =
+    core instanceof HTMLElement
+      ? Math.max(
+          1,
+          Math.ceil(core.getBoundingClientRect().height / EFFECTIVE_PAGE_HEIGHT_PX),
+        )
+      : 1;
+
+  let p = 1;
+  const finalSummaryCore = { pageFrom: p, pageTo: p + corePages - 1 };
+  p = finalSummaryCore.pageTo + 1;
+
+  let allZonesProperties: { pageFrom: number; pageTo: number } | null = null;
+  if (master instanceof HTMLElement) {
+    const mPages = Math.max(
+      1,
+      Math.ceil(master.getBoundingClientRect().height / EFFECTIVE_PAGE_HEIGHT_PX),
+    );
+    allZonesProperties = { pageFrom: p, pageTo: p + mPages - 1 };
+  }
+
+  return { finalSummaryCore, allZonesProperties };
+}
+
 type Atom =
   | { kind: "standalone"; height: number }
   | { kind: "tableHead"; tableId: number; height: number }

@@ -7,15 +7,19 @@ import {
   PropertyTableRowHighlight,
   ZoneSummaryWithDetails,
   bhawanTypeLabel,
+  concernedPpFromDepartmentCode,
   vacantPlotStatusLabel,
 } from "./zone-summary-types";
 import {
   computeIndexPageRanges,
+  estimateIndexFrontMatterDisplayRanges,
   estimatePagesBeforeFirstZone,
 } from "@/lib/reports/compute-index-page-ranges";
 import {
   measureFrontMatterPageCount,
+  measureIndexFrontMatterDisplayRanges,
   measureZoneIndexPageRanges,
+  type IndexFrontMatterDisplayRanges,
 } from "@/lib/reports/measure-zone-index-pages";
 
 function zoneDataCellClass(
@@ -241,6 +245,15 @@ const styles = `
     min-width: 110px;
     text-align: center;
     white-space: nowrap;
+  }
+  .index-table td.index-section-heading {
+    font-weight: bold;
+    text-decoration: underline;
+    background: #f0f0f0;
+    text-align: left;
+  }
+  .index-table td.index-concerned-pp {
+    text-align: center;
   }
 
   /* FINAL SUMMARY PAGE */
@@ -599,15 +612,31 @@ function indexHeaderStyle(align: "left" | "center" = "left"): CSSProperties {
   };
 }
 
+function formatReportIndexPageNo(n: number): string {
+  return String(Math.max(1, Math.round(n))).padStart(2, "0");
+}
+
+/** Overall Summary rows: no single PP when the report spans all departments. */
+function indexConcernedPpOverall(departmentCode: string | undefined): string {
+  const c = String(departmentCode ?? "").trim();
+  if (!c) return "-";
+  return concernedPpFromDepartmentCode(c);
+}
+
 export function ZoneSummaryPdfView({ reportData }: Props) {
   const [domPageRanges, setDomPageRanges] = useState<Map<
     string,
     { pageFrom: number; pageTo: number }
   > | null>(null);
+  const [indexFrontMatterMeasured, setIndexFrontMatterMeasured] =
+    useState<IndexFrontMatterDisplayRanges | null>(null);
 
   useLayoutEffect(() => {
     if (!reportData?.zoneSummaries?.length) {
-      const clearId = requestAnimationFrame(() => setDomPageRanges(null));
+      const clearId = requestAnimationFrame(() => {
+        setDomPageRanges(null);
+        setIndexFrontMatterMeasured(null);
+      });
       return () => cancelAnimationFrame(clearId);
     }
 
@@ -616,6 +645,11 @@ export function ZoneSummaryPdfView({ reportData }: Props) {
     const measure = () => {
       const root = document.getElementById("pdf-content");
       if (!root) return;
+      if (root instanceof HTMLElement && summaries.length > 1) {
+        setIndexFrontMatterMeasured(measureIndexFrontMatterDisplayRanges(root));
+      } else {
+        setIndexFrontMatterMeasured(null);
+      }
       const zps = root.querySelector(".zone-pages-start");
       if (!zps || !(zps instanceof HTMLElement)) return;
       const ids = summaries.map((z) => z.zoneId);
@@ -665,6 +699,20 @@ export function ZoneSummaryPdfView({ reportData }: Props) {
       .filter((row) => !isNoLandAreaHeld(row.areaHeld));
   }, [reportData?.zoneSummaries]);
 
+  const indexFrontDisplay = useMemo(() => {
+    if (!reportData?.zoneSummaries?.length || reportData.zoneSummaries.length < 2) {
+      return null;
+    }
+    return (
+      indexFrontMatterMeasured ??
+      estimateIndexFrontMatterDisplayRanges(allZoneMasterRows.length)
+    );
+  }, [
+    reportData?.zoneSummaries?.length,
+    indexFrontMatterMeasured,
+    allZoneMasterRows.length,
+  ]);
+
   /** Must run before any early return (Rules of Hooks). */
   const indexWithPages = useMemo(() => {
     const summaries = reportData?.zoneSummaries;
@@ -677,15 +725,18 @@ export function ZoneSummaryPdfView({ reportData }: Props) {
     });
     /** INDEX is not counted in printed page numbers (page 1 = first Final Summary sheet). */
     const indexSheetDisplayOffset = summaries.length > 1 ? 1 : 0;
+    const zoneBaseSno =
+      2 + (summaries.length > 1 && allZoneMasterRows.length > 0 ? 1 : 0);
     return summaries.map((z, i) => {
       const dom = domPageRanges?.get(z.zoneId);
       const rawFrom = dom?.pageFrom ?? fallback[i]?.pageFrom ?? 1;
       const rawTo = dom?.pageTo ?? fallback[i]?.pageTo ?? 1;
       return {
-        sno: i + 1,
+        sno: zoneBaseSno + i,
         zoneId: z.zoneId,
         zoneNumber: z.zoneNumber,
         zoneName: z.zoneName,
+        departmentCode: z.departmentCode ?? "",
         pageFrom: Math.max(1, rawFrom - indexSheetDisplayOffset),
         pageTo: Math.max(1, rawTo - indexSheetDisplayOffset),
       };
@@ -719,16 +770,16 @@ export function ZoneSummaryPdfView({ reportData }: Props) {
       <style>{styles}</style>
       <div className="pdf-container" id="pdf-content">
         {/* INDEX PAGE - Hidden when specific zone selected */}
-        {!isSpecificZone && (
+        {!isSpecificZone && indexFrontDisplay && (
           <div className="index-page page-break">
             <div className="index-title">INDEX</div>
             <table className="index-table" style={INDEX_TABLE_STYLE}>
               <colgroup>
-                <col style={{ width: "64px" }} />
-                <col style={{ width: "88px" }} />
+                <col style={{ width: "52px" }} />
                 <col />
-                <col style={{ width: "64px" }} />
-                <col style={{ width: "64px" }} />
+                <col style={{ width: "56px" }} />
+                <col style={{ width: "56px" }} />
+                <col style={{ width: "100px" }} />
               </colgroup>
               <thead>
                 <tr>
@@ -737,24 +788,20 @@ export function ZoneSummaryPdfView({ reportData }: Props) {
                     scope="col"
                     style={indexHeaderStyle("center")}
                   >
-                    S. No.
-                  </th>
-                  <th
-                    rowSpan={2}
-                    scope="col"
-                    style={indexHeaderStyle("center")}
-                  >
-                    Zone No.
+                    S.No.
                   </th>
                   <th rowSpan={2} scope="col" style={indexHeaderStyle("left")}>
-                    Zone Name
+                    Details
                   </th>
                   <th
                     colSpan={2}
                     scope="colgroup"
                     style={indexHeaderStyle("center")}
                   >
-                    Page No
+                    Page No.
+                  </th>
+                  <th rowSpan={2} scope="col" style={indexHeaderStyle("center")}>
+                    Concerned PP
                   </th>
                 </tr>
                 <tr>
@@ -767,36 +814,130 @@ export function ZoneSummaryPdfView({ reportData }: Props) {
                 </tr>
               </thead>
               <tbody>
+                <tr>
+                  <td
+                    className="index-section-heading"
+                    colSpan={5}
+                    style={indexCellStyle("left")}
+                  >
+                    Overall Summary
+                  </td>
+                </tr>
+                <tr data-lp-index-row="final-summary-core">
+                  <td style={{ ...indexCellStyle("center"), fontWeight: 600 }}>
+                    1.
+                  </td>
+                  <td style={indexCellStyle("left")}>Final Summary</td>
+                  <td
+                    style={{
+                      ...indexCellStyle("center"),
+                      fontWeight: 600,
+                    }}
+                    data-lp-page-from
+                  >
+                    {formatReportIndexPageNo(
+                      indexFrontDisplay.finalSummaryCore.pageFrom,
+                    )}
+                  </td>
+                  <td
+                    style={{
+                      ...indexCellStyle("center"),
+                      fontWeight: 600,
+                    }}
+                    data-lp-page-to
+                  >
+                    {formatReportIndexPageNo(
+                      indexFrontDisplay.finalSummaryCore.pageTo,
+                    )}
+                  </td>
+                  <td
+                    className="index-concerned-pp"
+                    style={indexCellStyle("center")}
+                  >
+                    {indexConcernedPpOverall(overallSummary.departmentCode)}
+                  </td>
+                </tr>
+                {allZoneMasterRows.length > 0 &&
+                  indexFrontDisplay.allZonesProperties && (
+                    <tr data-lp-index-row="all-zones-properties">
+                      <td style={{ ...indexCellStyle("center"), fontWeight: 600 }}>
+                        2.
+                      </td>
+                      <td style={indexCellStyle("left")}>
+                        {
+                          "Details of Properties Held (Sum of Bhawans, Sheds, Buildings & Vacant Plots)"
+                        }
+                      </td>
+                      <td
+                        style={{
+                          ...indexCellStyle("center"),
+                          fontWeight: 600,
+                        }}
+                        data-lp-page-from
+                      >
+                        {formatReportIndexPageNo(
+                          indexFrontDisplay.allZonesProperties.pageFrom,
+                        )}
+                      </td>
+                      <td
+                        style={{
+                          ...indexCellStyle("center"),
+                          fontWeight: 600,
+                        }}
+                        data-lp-page-to
+                      >
+                        {formatReportIndexPageNo(
+                          indexFrontDisplay.allZonesProperties.pageTo,
+                        )}
+                      </td>
+                      <td
+                        className="index-concerned-pp"
+                        style={indexCellStyle("center")}
+                      >
+                        {indexConcernedPpOverall(overallSummary.departmentCode)}
+                      </td>
+                    </tr>
+                  )}
+                <tr>
+                  <td
+                    className="index-section-heading"
+                    colSpan={5}
+                    style={indexCellStyle("left")}
+                  >
+                    Zone Wise Details
+                  </td>
+                </tr>
                 {indexWithPages.map((z) => (
-                  <tr key={z.sno} data-lp-index-zone-id={z.zoneId}>
-                    <td style={{ ...indexCellStyle("center"), width: "64px" }}>
+                  <tr key={z.zoneId} data-lp-index-zone-id={z.zoneId}>
+                    <td style={{ ...indexCellStyle("center"), fontWeight: 600 }}>
                       {z.sno}.
                     </td>
-                    <td style={{ ...indexCellStyle("center"), width: "88px" }}>
-                      {z.zoneNumber}
+                    <td style={indexCellStyle("left")}>
+                      Zone {z.zoneNumber}, {z.zoneName}
                     </td>
-                    <td style={indexCellStyle("left")}>{z.zoneName}</td>
                     <td
                       style={{
                         ...indexCellStyle("center"),
-                        width: "64px",
-                        minWidth: "64px",
                         fontWeight: 600,
                       }}
                       data-lp-page-from
                     >
-                      {z.pageFrom}
+                      {formatReportIndexPageNo(z.pageFrom)}
                     </td>
                     <td
                       style={{
                         ...indexCellStyle("center"),
-                        width: "64px",
-                        minWidth: "64px",
                         fontWeight: 600,
                       }}
                       data-lp-page-to
                     >
-                      {z.pageTo}
+                      {formatReportIndexPageNo(z.pageTo)}
+                    </td>
+                    <td
+                      className="index-concerned-pp"
+                      style={indexCellStyle("center")}
+                    >
+                      {concernedPpFromDepartmentCode(z.departmentCode)}
                     </td>
                   </tr>
                 ))}
@@ -808,9 +949,10 @@ export function ZoneSummaryPdfView({ reportData }: Props) {
         {/* FINAL SUMMARY PAGE - Hidden when specific zone selected */}
         {!isSpecificZone && (
           <div className="final-summary-page page-break">
-            <div className="final-summary-title">Final Summary</div>
+            <div className="lp-report-index-final-summary-core">
+              <div className="final-summary-title">Final Summary</div>
 
-            <table className="summary-table">
+              <table className="summary-table">
               <tbody>
                 <tr>
                   <td className="code-col">A1</td>
@@ -872,8 +1014,10 @@ export function ZoneSummaryPdfView({ reportData }: Props) {
               </table>
             </div>
 
+            </div>
+
             {allZoneMasterRows.length > 0 && (
-              <div className="zone-master-page">
+              <div className="lp-report-index-zone-master-block zone-master-page">
                 <div className="zone-master-title">Details of All Zones Properties</div>
                 <MasterPropertyDataTable
                   rows={allZoneMasterRows}

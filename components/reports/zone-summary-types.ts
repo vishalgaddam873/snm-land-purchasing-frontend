@@ -35,6 +35,8 @@ export type ZoneSummaryWithDetails = {
   zoneName: string;
   departmentId: string;
   departmentName: string;
+  /** e.g. DEP-001 — INDEX “Concerned PP” maps to PP 1, etc. */
+  departmentCode: string;
   sectionA: {
     registeredBranches: number;
     branchesToBeRegistered: number;
@@ -65,6 +67,7 @@ export type ZoneSummaryWithDetails = {
 export type DepartmentOverallSummary = {
   departmentId: string;
   departmentName: string;
+  departmentCode: string;
   sectionA: {
     registeredBranches: number;
     branchesToBeRegistered: number;
@@ -120,6 +123,21 @@ export type ZoneOption = {
   zoneNumber: string;
   departmentId: string;
 };
+
+/** Maps department code (e.g. DEP-001, DEP-002) to INDEX “Concerned PP” (PP 1, PP 2, …). */
+export function concernedPpFromDepartmentCode(
+  code: string | undefined | null,
+): string {
+  const c = String(code ?? "").trim().toUpperCase();
+  if (!c) return "—";
+  const hyphen = c.match(/^DEP-0*(\d+)$/);
+  if (hyphen) return `PP ${parseInt(hyphen[1], 10)}`;
+  const compact = c.match(/^DEP0*(\d+)$/);
+  if (compact) return `PP ${parseInt(compact[1], 10)}`;
+  const tail = c.match(/(\d+)\s*$/);
+  if (tail) return `PP ${parseInt(tail[1], 10)}`;
+  return "—";
+}
 
 export function bhawanTypeLabel(v: string): string {
   const map: Record<string, string> = {

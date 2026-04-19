@@ -312,6 +312,34 @@ export function ReportsPageClient() {
           return total;
         }
 
+        function measureIndexFrontMatterDisplayRanges(root) {
+          const core = root.querySelector(".lp-report-index-final-summary-core");
+          const master = root.querySelector(".lp-report-index-zone-master-block");
+          const corePages =
+            core instanceof HTMLElement
+              ? Math.max(
+                  1,
+                  Math.ceil(core.getBoundingClientRect().height / EFFECTIVE_PAGE_HEIGHT_PX),
+                )
+              : 1;
+          let p = 1;
+          const finalSummaryCore = { pageFrom: p, pageTo: p + corePages - 1 };
+          p = finalSummaryCore.pageTo + 1;
+          let allZonesProperties = null;
+          if (master instanceof HTMLElement) {
+            const mPages = Math.max(
+              1,
+              Math.ceil(master.getBoundingClientRect().height / EFFECTIVE_PAGE_HEIGHT_PX),
+            );
+            allZonesProperties = { pageFrom: p, pageTo: p + mPages - 1 };
+          }
+          return { finalSummaryCore, allZonesProperties };
+        }
+
+        function padIndexPageNo(n) {
+          return String(Math.max(1, n)).padStart(2, "0");
+        }
+
         function measureZoneIndexPageRanges(zonePagesStart, zoneIds, pagesBeforeFirstZone = 0) {
           const zoneSections = new Map();
 
@@ -358,8 +386,26 @@ export function ReportsPageClient() {
 
         function applyMeasuredIndex() {
           const root = document.getElementById("pdf-content");
-          const zonePagesStart = root && root.querySelector(".zone-pages-start");
-          if (!(root instanceof HTMLElement) || !(zonePagesStart instanceof HTMLElement)) return;
+          if (!(root instanceof HTMLElement)) return;
+
+          const fm = measureIndexFrontMatterDisplayRanges(root);
+          const fsRow = root.querySelector('[data-lp-index-row="final-summary-core"]');
+          if (fsRow) {
+            const fromC = fsRow.querySelector("[data-lp-page-from]");
+            const toC = fsRow.querySelector("[data-lp-page-to]");
+            if (fromC) fromC.textContent = padIndexPageNo(fm.finalSummaryCore.pageFrom);
+            if (toC) toC.textContent = padIndexPageNo(fm.finalSummaryCore.pageTo);
+          }
+          const mzRow = root.querySelector('[data-lp-index-row="all-zones-properties"]');
+          if (mzRow && fm.allZonesProperties) {
+            const fromC = mzRow.querySelector("[data-lp-page-from]");
+            const toC = mzRow.querySelector("[data-lp-page-to]");
+            if (fromC) fromC.textContent = padIndexPageNo(fm.allZonesProperties.pageFrom);
+            if (toC) toC.textContent = padIndexPageNo(fm.allZonesProperties.pageTo);
+          }
+
+          const zonePagesStart = root.querySelector(".zone-pages-start");
+          if (!(zonePagesStart instanceof HTMLElement)) return;
 
           const rows = Array.from(
             root.querySelectorAll("[data-lp-index-zone-id]"),
@@ -383,11 +429,11 @@ export function ReportsPageClient() {
             const fromCell = row.querySelector("[data-lp-page-from]");
             const toCell = row.querySelector("[data-lp-page-to]");
             if (fromCell)
-              fromCell.textContent = String(
+              fromCell.textContent = padIndexPageNo(
                 Math.max(1, range.pageFrom - indexSheetDisplayOffset),
               );
             if (toCell)
-              toCell.textContent = String(
+              toCell.textContent = padIndexPageNo(
                 Math.max(1, range.pageTo - indexSheetDisplayOffset),
               );
           });
