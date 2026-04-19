@@ -881,98 +881,7 @@ function ZonePdfSection({ zone }: { zone: ZoneSummaryWithDetails }) {
 
   return (
     <>
-      {/* Zone Data Table */}
-      {hasDataTable && (
-        <div
-          className="zone-data-page page-break"
-          data-lp-zone-id={zone.zoneId}
-        >
-          <div className="zone-data-title">
-            Zone {zone.zoneNumber} : {zone.zoneName}
-          </div>
-          <table className="data-table">
-            <thead>
-              <tr>
-                <th className="sno">S.No.</th>
-                <th className="zno">Z.No.</th>
-                <th>Zone Name</th>
-                <th>Sector No.</th>
-                <th>Branch Name</th>
-                <th>Property Details</th>
-                <th>Details of Properties Held (Area)</th>
-                <th>Bhawan Constructed or Not / Under Construction</th>
-                <th>Located at (Place)</th>
-                <th>Type of Bhawan : Building or Shed</th>
-                <th>Remarks</th>
-              </tr>
-            </thead>
-            <tbody>
-              {zone.allProperties.map((row, idx) => {
-                const info = mergeInfo.get(idx);
-                const isFirst = info?.isFirstOfGroup ?? true;
-                const rowSpan = info?.rowSpan ?? 1;
-                const zc = zoneDataCellClass(row.rowHighlight);
-
-                return (
-                  <tr key={`${zone.zoneId}-${idx}`}>
-                    {isFirst && (
-                      <>
-                        <td
-                          className={["sno", zc].filter(Boolean).join(" ")}
-                          rowSpan={rowSpan}
-                          style={{ verticalAlign: "middle" }}
-                        >
-                          {row.sno}
-                        </td>
-                        <td
-                          className={["zno", zc].filter(Boolean).join(" ")}
-                          rowSpan={rowSpan}
-                          style={{ verticalAlign: "middle" }}
-                        >
-                          {row.zoneNumber}
-                        </td>
-                        <td
-                          className={zc}
-                          rowSpan={rowSpan}
-                          style={{ verticalAlign: "middle" }}
-                        >
-                          {row.zoneName}
-                        </td>
-                        <td
-                          className={zc}
-                          rowSpan={rowSpan}
-                          style={{ verticalAlign: "middle", textAlign: "center" }}
-                        >
-                          {row.sectorNumber || "NA"}
-                        </td>
-                        <td
-                          className={zc}
-                          rowSpan={rowSpan}
-                          style={{ verticalAlign: "middle" }}
-                        >
-                          {row.branchName}
-                        </td>
-                      </>
-                    )}
-                    <td className={zc}>{row.propertyName}</td>
-                    <td className={zc}>{row.areaHeld}</td>
-                    <td className={zc} style={{ textAlign: "center" }}>
-                      {row.constructionStatus}
-                    </td>
-                    <td className={zc}>{row.locatedAt}</td>
-                    <td className={zc}>{row.bhawanType}</td>
-                    <td className={["remarks", zc].filter(Boolean).join(" ")}>
-                      {remarkHtmlToText(row.remarks)}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      )}
-
-      {/* Zone Summary */}
+      {/* Zone summary (A/B counts + detail tables) before the master property table */}
       <div
         className="zone-summary-page page-break"
         data-lp-zone-id={zone.zoneId}
@@ -1103,6 +1012,97 @@ function ZonePdfSection({ zone }: { zone: ZoneSummaryWithDetails }) {
         )}
 
       </div>
+
+      {/* Master zone property listing */}
+      {hasDataTable && (
+        <div
+          className="zone-data-page page-break"
+          data-lp-zone-id={zone.zoneId}
+        >
+          <div className="zone-data-title">
+            Zone {zone.zoneNumber} : {zone.zoneName}
+          </div>
+          <table className="data-table">
+            <thead>
+              <tr>
+                <th className="sno">S.No.</th>
+                <th className="zno">Z.No.</th>
+                <th>Zone Name</th>
+                <th>Sector No.</th>
+                <th>Branch Name</th>
+                <th>Property Details</th>
+                <th>Details of Properties Held (Area)</th>
+                <th>Bhawan Constructed or Not / Under Construction</th>
+                <th>Located at (Place)</th>
+                <th>Type of Bhawan : Building or Shed</th>
+                <th>Remarks</th>
+              </tr>
+            </thead>
+            <tbody>
+              {zone.allProperties.map((row, idx) => {
+                const info = mergeInfo.get(idx);
+                const isFirst = info?.isFirstOfGroup ?? true;
+                const rowSpan = info?.rowSpan ?? 1;
+                const zc = zoneDataCellClass(row.rowHighlight);
+
+                return (
+                  <tr key={`${zone.zoneId}-${idx}`}>
+                    {isFirst && (
+                      <>
+                        <td
+                          className={["sno", zc].filter(Boolean).join(" ")}
+                          rowSpan={rowSpan}
+                          style={{ verticalAlign: "middle" }}
+                        >
+                          {row.sno}
+                        </td>
+                        <td
+                          className={["zno", zc].filter(Boolean).join(" ")}
+                          rowSpan={rowSpan}
+                          style={{ verticalAlign: "middle" }}
+                        >
+                          {row.zoneNumber}
+                        </td>
+                        <td
+                          className={zc}
+                          rowSpan={rowSpan}
+                          style={{ verticalAlign: "middle" }}
+                        >
+                          {row.zoneName}
+                        </td>
+                        <td
+                          className={zc}
+                          rowSpan={rowSpan}
+                          style={{ verticalAlign: "middle", textAlign: "center" }}
+                        >
+                          {row.sectorNumber || "NA"}
+                        </td>
+                        <td
+                          className={zc}
+                          rowSpan={rowSpan}
+                          style={{ verticalAlign: "middle" }}
+                        >
+                          {row.branchName}
+                        </td>
+                      </>
+                    )}
+                    <td className={zc}>{row.propertyName}</td>
+                    <td className={zc}>{row.areaHeld}</td>
+                    <td className={zc} style={{ textAlign: "center" }}>
+                      {row.constructionStatus}
+                    </td>
+                    <td className={zc}>{row.locatedAt}</td>
+                    <td className={zc}>{row.bhawanType}</td>
+                    <td className={["remarks", zc].filter(Boolean).join(" ")}>
+                      {remarkHtmlToText(row.remarks)}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
     </>
   );
 }

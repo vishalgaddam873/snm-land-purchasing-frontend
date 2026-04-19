@@ -67,17 +67,16 @@ export function computeIndexPageRanges(
     return Math.max(1, Math.ceil(lines / SUMMARY_LINES_PER_PAGE));
   };
 
-  // Build page mapping sequentially
+  // Build page mapping sequentially (each zone: summary block, then master table)
   const out: { pageFrom: number; pageTo: number }[] = [];
   let currentPage = 1;
 
   for (const zone of zones) {
     const pageFrom = currentPage;
 
-    // Calculate pages for this zone
-    const dataPages = calculateDataTablePages(zone);
     const summaryPages = calculateSummaryPages(zone);
-    const totalPages = dataPages + summaryPages;
+    const dataPages = calculateDataTablePages(zone);
+    const totalPages = summaryPages + dataPages;
 
     // pageTo is the last page used by this zone
     const pageTo = pageFrom + totalPages - 1;

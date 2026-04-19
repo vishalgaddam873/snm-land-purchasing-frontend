@@ -1,7 +1,9 @@
 /**
  * Accurate INDEX "Page No" From/To calculation by simulating print pagination.
  *
- * We paginate atomic pieces of each zone section in DOM order:
+ * We paginate atomic pieces of each zone section in DOM order.
+ * Each zone prints: summary block (counts + detail tables), then the master property table.
+ * Per-section atoms include:
  * - section titles / headers
  * - table heads
  * - table rows
@@ -227,17 +229,17 @@ export function measureZoneIndexPageRanges(
 
     const pageFrom = currentPage;
 
-    let dataPages = 0;
-    if (sections.dataPage) {
-      dataPages = simulatePagesForSection(sections.dataPage);
-    }
-
     let summaryPages = 1;
     if (sections.summaryPage) {
       summaryPages = simulatePagesForSection(sections.summaryPage);
     }
 
-    const totalPages = dataPages + summaryPages;
+    let dataPages = 0;
+    if (sections.dataPage) {
+      dataPages = simulatePagesForSection(sections.dataPage);
+    }
+
+    const totalPages = summaryPages + dataPages;
     const pageTo = pageFrom + totalPages - 1;
 
     out.set(zoneId, { pageFrom, pageTo });

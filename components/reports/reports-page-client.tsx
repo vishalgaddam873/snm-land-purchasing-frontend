@@ -323,11 +323,11 @@ export function ReportsPageClient() {
             if (!sections) continue;
 
             const pageFrom = currentPage;
-            const dataPages = sections.dataPage ? simulatePagesForSection(sections.dataPage) : 0;
             const summaryPages = sections.summaryPage
               ? simulatePagesForSection(sections.summaryPage)
               : 1;
-            const totalPages = dataPages + summaryPages;
+            const dataPages = sections.dataPage ? simulatePagesForSection(sections.dataPage) : 0;
+            const totalPages = summaryPages + dataPages;
             const pageTo = pageFrom + totalPages - 1;
 
             out.set(zoneId, { pageFrom, pageTo });
