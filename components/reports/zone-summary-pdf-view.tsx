@@ -156,11 +156,16 @@ const styles = `
     font-family: Arial, 'Helvetica Neue', Helvetica, sans-serif;
     color: #000;
     background: #fff;
-    padding: 24px 32px;
-    /* A4 landscape width = 297mm */
+    /*
+     * Match print layout exactly: A4 landscape (297mm wide) with 12mm side margins
+     * means content width is 273mm. Using padding instead of max-width reduction
+     * so screen rendering matches print pagination as closely as possible.
+     */
+    padding: 12mm;
     max-width: 297mm;
     margin: 0 auto;
     font-size: 11px;
+    box-sizing: border-box;
   }
   .page-break {
     page-break-after: always;
@@ -402,6 +407,9 @@ const styles = `
   .detail-section {
     margin-top: 24px;
     margin-bottom: 16px;
+    /* Keep entire detail section (title + table) together on one page */
+    break-inside: avoid;
+    page-break-inside: avoid;
   }
   .detail-title {
     font-size: 13px;
@@ -411,11 +419,17 @@ const styles = `
     background: #E5EEE4;
     border: 1px solid #888;
     border-radius: 3px;
+    /* Keep title with the table that follows */
+    break-after: avoid;
+    page-break-after: avoid;
   }
   .detail-table {
     width: 100%;
     border-collapse: collapse;
     font-size: 11px;
+    /* Prevent table from splitting across pages */
+    break-inside: avoid;
+    page-break-inside: avoid;
   }
   .detail-table th,
   .detail-table td {
@@ -484,6 +498,20 @@ const styles = `
       counter-reset: lp-zone-sheet 0;
       /* Fallback where @page counter-increment is not applied to lp-zone-sheet */
       counter-set: lp-zone-sheet 0;
+    }
+
+    /* Keep detail sections (title + table) together on one page in print */
+    .detail-section {
+      break-inside: avoid !important;
+      page-break-inside: avoid !important;
+    }
+    .detail-title {
+      break-after: avoid !important;
+      page-break-after: avoid !important;
+    }
+    .detail-table {
+      break-inside: avoid !important;
+      page-break-inside: avoid !important;
     }
   }
 `;
@@ -595,6 +623,7 @@ export function ZoneSummaryPdfView({ reportData }: Props) {
       const dom = domPageRanges?.get(z.zoneId);
       return {
         sno: i + 1,
+        zoneId: z.zoneId,
         zoneNumber: z.zoneNumber,
         zoneName: z.zoneName,
         pageFrom: dom?.pageFrom ?? fallback[i]?.pageFrom ?? 1,
@@ -683,7 +712,7 @@ export function ZoneSummaryPdfView({ reportData }: Props) {
               </thead>
               <tbody>
                 {indexWithPages.map((z) => (
-                  <tr key={z.sno}>
+                  <tr key={z.sno} data-lp-index-zone-id={z.zoneId}>
                     <td style={{ ...indexCellStyle("center"), width: "64px" }}>
                       {z.sno}.
                     </td>
@@ -698,6 +727,7 @@ export function ZoneSummaryPdfView({ reportData }: Props) {
                         minWidth: "64px",
                         fontWeight: 600,
                       }}
+                      data-lp-page-from
                     >
                       {z.pageFrom}
                     </td>
@@ -708,6 +738,7 @@ export function ZoneSummaryPdfView({ reportData }: Props) {
                         minWidth: "64px",
                         fontWeight: 600,
                       }}
+                      data-lp-page-to
                     >
                       {z.pageTo}
                     </td>
@@ -846,11 +877,12 @@ function computeMergeInfo(
 
 function ZonePdfSection({ zone }: { zone: ZoneSummaryWithDetails }) {
   const mergeInfo = computeMergeInfo(zone.allProperties);
+  const hasDataTable = zone.allProperties.length > 0;
 
   return (
     <>
       {/* Zone Data Table */}
-      {zone.allProperties.length > 0 && (
+      {hasDataTable && (
         <div
           className="zone-data-page page-break"
           data-lp-zone-id={zone.zoneId}
