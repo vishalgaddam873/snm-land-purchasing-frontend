@@ -27,7 +27,6 @@ import {
   Bar,
   BarChart,
   Cell,
-  Legend,
   Pie,
   PieChart,
   ResponsiveContainer,
@@ -76,7 +75,260 @@ type PropertyAnalyticsResponse = {
 };
 
 const A_COLORS = ["#059669", "#d97706", "#0284c7", "#7c3aed"];
-const B_COLORS = ["#2563eb", "#64748b", "#0d9488", "#16a34a", "#ea580c"];
+/** B1–B3 & B4 fills on the structure donut (B5 vacant uses `B5_VACANT_GREENS`). */
+const B_COLORS = ["#2563eb", "#64748b", "#0d9488", "#ea580c"];
+/** B1–B5 horizontal bar chart (single green for total B5 vacant). */
+const B_BAR_COLORS = [
+  "#2563eb",
+  "#64748b",
+  "#0d9488",
+  "#ea580c",
+  "#16a34a",
+];
+/** B5 vacant sub-slices (three greens). */
+const B5_VACANT_GREENS = {
+  fit: "#15803d",
+  fitLater: "#22c55e",
+  notFit: "#86efac",
+} as const;
+
+type StructurePieSlice = {
+  name: string;
+  value: number;
+  fill: string;
+  /** Vacant sub-slices (B5) — styled as a group in the legend. */
+  isVacantSubslice?: boolean;
+};
+
+/** WCAG-ish relative luminance → pick readable label color on slice fills. */
+function contrastLabelFill(segmentFill: string): string {
+  const h = segmentFill.trim().replace("#", "");
+  if (h.length !== 6 || !/^[0-9a-fA-F]+$/.test(h)) return "#f8fafc";
+  const r = Number.parseInt(h.slice(0, 2), 16) / 255;
+  const g = Number.parseInt(h.slice(2, 4), 16) / 255;
+  const b = Number.parseInt(h.slice(4, 6), 16) / 255;
+  const lin = (c: number) =>
+    c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4);
+  const L = 0.2126 * lin(r) + 0.7152 * lin(g) + 0.0722 * lin(b);
+  return L > 0.45 ? "#0f172a" : "#f8fafc";
+}
+
+function formatDonutSharePct(pct: number): string {
+  return `${pct.toFixed(1)}%`;
+}
+
+function DonutLegendRowCard({
+  item,
+  sum,
+}: {
+  item: StructurePieSlice;
+  sum: number;
+}) {
+  const pct = sum > 0 ? (item.value / sum) * 100 : 0;
+  return (
+    <div
+      className={cn(
+        "flex gap-3 rounded-xl border px-3 py-2.5 shadow-sm",
+        item.isVacantSubslice
+          ? "border-emerald-500/15 bg-emerald-500/[0.04]"
+          : "border-border/70 bg-muted/20",
+      )}
+    >
+      <span
+        className="mt-0.5 h-9 w-1.5 shrink-0 rounded-full ring-1 ring-black/[0.06] dark:ring-white/10"
+        style={{ backgroundColor: item.fill }}
+        aria-hidden
+      />
+      <div className="min-w-0 flex-1">
+        <p className="text-xs font-medium leading-snug text-foreground">
+          {item.name}
+        </p>
+        <div className="mt-1.5 flex flex-wrap items-baseline justify-between gap-x-2 gap-y-0.5 text-[11px]">
+          <span className="tabular-nums text-muted-foreground">
+            {item.value.toLocaleString()}{" "}
+            <span className="font-normal">total count</span>
+          </span>
+          <span className="shrink-0 text-sm font-semibold tabular-nums text-foreground">
+            {formatDonutSharePct(pct)}
+          </span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/** Percent on the ring only — names live in the legend to avoid hole clutter. */
+function structureSharePieLabel(props: unknown) {
+  const p = props as {
+    cx?: number;
+    cy?: number;
+    midAngle?: number;
+    innerRadius?: number;
+    outerRadius?: number;
+    percent?: number;
+    payload?: StructurePieSlice;
+  };
+  const cx = p.cx ?? 0;
+  const cy = p.cy ?? 0;
+  const midAngle = p.midAngle ?? 0;
+  const inner = p.innerRadius ?? 0;
+  const outer = p.outerRadius ?? 0;
+  const pctRaw = typeof p.percent === "number" ? p.percent * 100 : 0;
+  const fill = p.payload?.fill ?? "#334155";
+  const isVacantBreakdown = p.payload?.isVacantSubslice === true;
+  const RADIAN = Math.PI / 180;
+  const cos = Math.cos(-midAngle * RADIAN);
+  const sin = Math.sin(-midAngle * RADIAN);
+
+  const arcMidR = inner + (outer - inner) * 0.55;
+  const ax = cx + arcMidR * cos;
+  const ay = cy + arcMidR * sin;
+
+  const showLabel = isVacantBreakdown ? pctRaw > 0 : pctRaw >= 3;
+  if (!showLabel) return null;
+
+  const fontSize =
+    isVacantBreakdown && pctRaw < 2 ? 12.75 : pctRaw < 6 ? 15 : 16.5;
+
+  return (
+    <text
+      x={ax}
+      y={ay}
+      fill={contrastLabelFill(fill)}
+      textAnchor="middle"
+      dominantBaseline="central"
+      className="select-none"
+      style={{
+        fontSize,
+        fontWeight: 700,
+      }}
+    >
+      {formatDonutSharePct(pctRaw)}
+    </text>
+  );
+}
+
+/** A1–A4 donut: same ring labels as structure non-B5 slices (hide under 3%). */
+function registrationSharePieLabel(props: unknown) {
+  const p = props as {
+    cx?: number;
+    cy?: number;
+    midAngle?: number;
+    innerRadius?: number;
+    outerRadius?: number;
+    percent?: number;
+    payload?: StructurePieSlice;
+  };
+  const cx = p.cx ?? 0;
+  const cy = p.cy ?? 0;
+  const midAngle = p.midAngle ?? 0;
+  const inner = p.innerRadius ?? 0;
+  const outer = p.outerRadius ?? 0;
+  const pctRaw = typeof p.percent === "number" ? p.percent * 100 : 0;
+  const fill = p.payload?.fill ?? "#334155";
+  const RADIAN = Math.PI / 180;
+  const cos = Math.cos(-midAngle * RADIAN);
+  const sin = Math.sin(-midAngle * RADIAN);
+
+  const arcMidR = inner + (outer - inner) * 0.55;
+  const ax = cx + arcMidR * cos;
+  const ay = cy + arcMidR * sin;
+
+  if (pctRaw < 3) return null;
+
+  const fontSize = pctRaw < 6 ? 15 : 16.5;
+
+  return (
+    <text
+      x={ax}
+      y={ay}
+      fill={contrastLabelFill(fill)}
+      textAnchor="middle"
+      dominantBaseline="central"
+      className="select-none"
+      style={{
+        fontSize,
+        fontWeight: 700,
+      }}
+    >
+      {formatDonutSharePct(pctRaw)}
+    </text>
+  );
+}
+
+function RegistrationUnitsLegendGrid({
+  items,
+  sum,
+}: {
+  items: StructurePieSlice[];
+  sum: number;
+}) {
+  return (
+    <div className="space-y-4 border-t border-border/60 pt-4">
+      <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+        Categories
+      </p>
+      <div className="grid gap-2.5 sm:grid-cols-2">
+        {items.map((item) => (
+          <DonutLegendRowCard key={item.name} item={item} sum={sum} />
+        ))}
+      </div>
+      <p className="text-[10px] leading-relaxed text-muted-foreground">
+        Hover the chart for counts. Slices under 3% omit the on-chart percentage.
+      </p>
+    </div>
+  );
+}
+
+function StructureShareLegendGrid({
+  items,
+  sum,
+}: {
+  items: StructurePieSlice[];
+  sum: number;
+}) {
+  const isNoBhawanSlice = (x: StructurePieSlice) =>
+    x.name.includes("No bhawan / no plot");
+  const vacantSubslices = items.filter((x) => x.isVacantSubslice);
+  const b123 = items.filter(
+    (x) => !x.isVacantSubslice && !isNoBhawanSlice(x),
+  );
+  const noBhawanOnly = items.filter(
+    (x) => !x.isVacantSubslice && isNoBhawanSlice(x),
+  );
+
+  return (
+    <div className="space-y-4 border-t border-border/60 pt-4">
+      <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+        Categories
+      </p>
+      <div className="grid gap-2.5 sm:grid-cols-2">
+        {b123.map((item) => (
+          <DonutLegendRowCard key={item.name} item={item} sum={sum} />
+        ))}
+        {noBhawanOnly.map((item) => (
+          <DonutLegendRowCard key={item.name} item={item} sum={sum} />
+        ))}
+        {vacantSubslices.length > 0 ? (
+          <div className="sm:col-span-2">
+            <p className="mb-2 text-[10px] font-semibold uppercase tracking-wide text-emerald-700/90 dark:text-emerald-400/90">
+              Vacant plots — breakdown (B5)
+            </p>
+            <div className="grid gap-2.5 sm:grid-cols-2">
+              {vacantSubslices.map((item) => (
+                <DonutLegendRowCard key={item.name} item={item} sum={sum} />
+              ))}
+            </div>
+          </div>
+        ) : null}
+      </div>
+      <p className="text-[10px] leading-relaxed text-muted-foreground">
+        Hover the chart for counts. Non–B5 breakdown slices under 3% omit the
+        on-chart percentage; B5 vacant slices always show a % when present.
+      </p>
+    </div>
+  );
+}
 
 function zoneDeptId(z: ZoneSelectOption): string {
   return z.departmentId != null && z.departmentId !== ""
@@ -94,6 +346,61 @@ function sortZonesForSelect(zones: ZoneSelectOption[]): ZoneSelectOption[] {
 
 const selectTriggerClass =
   "h-10 w-full rounded-xl border-border/80 bg-background text-[13px] shadow-sm";
+
+/** Pie / donut hover popup: count + share of the chart total (non-zero slices only). */
+function PieDonutTooltipContent({
+  active,
+  payload,
+  sumOfSliceValues,
+}: {
+  active?: boolean;
+  payload?: unknown;
+  sumOfSliceValues: number;
+}) {
+  if (!active || !Array.isArray(payload) || payload.length === 0) return null;
+  const row = payload[0] as Record<string, unknown>;
+  const nested =
+    row.payload && typeof row.payload === "object"
+      ? (row.payload as Record<string, unknown>)
+      : undefined;
+  const count = Number(row.value ?? 0);
+  let fromRecharts: number | null = null;
+  if (typeof row.percent === "number" && Number.isFinite(row.percent)) {
+    fromRecharts = row.percent * 100;
+  } else if (
+    typeof nested?.percent === "number" &&
+    Number.isFinite(nested.percent)
+  ) {
+    fromRecharts = nested.percent * 100;
+  }
+  const pct =
+    fromRecharts ??
+    (sumOfSliceValues > 0 ? (count / sumOfSliceValues) * 100 : null);
+  const rawName = row.name;
+  const title =
+    rawName != null && rawName !== "" ? String(rawName) : "Category";
+  return (
+    <div className="rounded-xl border border-border bg-card px-3 py-2 text-xs shadow-md">
+      <div className="font-semibold text-foreground">{title}</div>
+      <div className="mt-1.5 space-y-0.5 text-muted-foreground">
+        <div>
+          Count:{" "}
+          <span className="font-semibold tabular-nums text-foreground">
+            {count}
+          </span>
+        </div>
+        {pct != null ? (
+          <div>
+            Percentage:{" "}
+            <span className="font-semibold tabular-nums text-foreground">
+              {pct.toFixed(1)}%
+            </span>
+          </div>
+        ) : null}
+      </div>
+    </div>
+  );
+}
 
 export function DashboardPropertyAnalytics() {
   const [scope, setScope] = React.useState<AnalyticsScope>("overall");
@@ -301,10 +608,19 @@ export function DashboardPropertyAnalytics() {
     ].filter((d) => d.value > 0);
   }, [data]);
 
+  const pieASum = React.useMemo(
+    () => pieA.reduce((s, d) => s + d.value, 0),
+    [pieA],
+  );
+
   const pieB = React.useMemo(() => {
     if (!data) return [];
     const b3 = data.sectionB.bhawansUnderConstruction ?? 0;
-    return [
+    const b4Fit = data.sectionB.vacantPlotsFitForConstruction ?? 0;
+    const b4Later = data.sectionB.vacantPlotsFitForConstructionLaterStage ?? 0;
+    const b4NotFit = data.sectionB.notFitForConstructionPlots ?? 0;
+
+    const slices: StructurePieSlice[] = [
       {
         name: "Bhawan + shed (B1)",
         value: data.sectionB.bhawans,
@@ -321,17 +637,42 @@ export function DashboardPropertyAnalytics() {
         fill: B_COLORS[2],
       },
       {
-        name: "Vacant plots (B4)",
-        value: data.sectionB.vacantPlots,
+        name: "No bhawan / no plot (B4)",
+        value: data.sectionB.noBhawanNoPlots,
         fill: B_COLORS[3],
       },
-      {
-        name: "No bhawan / no plot (B5)",
-        value: data.sectionB.noBhawanNoPlots,
-        fill: B_COLORS[4],
-      },
-    ].filter((d) => d.value > 0);
+    ];
+    if (b4Fit > 0) {
+      slices.push({
+        name: "Vacant — Fit for construction (B5)",
+        value: b4Fit,
+        fill: B5_VACANT_GREENS.fit,
+        isVacantSubslice: true,
+      });
+    }
+    if (b4Later > 0) {
+      slices.push({
+        name: "Vacant — Fit at later stage (B5)",
+        value: b4Later,
+        fill: B5_VACANT_GREENS.fitLater,
+        isVacantSubslice: true,
+      });
+    }
+    if (b4NotFit > 0) {
+      slices.push({
+        name: "Vacant — Not fit for construction (B5)",
+        value: b4NotFit,
+        fill: B5_VACANT_GREENS.notFit,
+        isVacantSubslice: true,
+      });
+    }
+    return slices.filter((d) => d.value > 0);
   }, [data]);
+
+  const pieBSum = React.useMemo(
+    () => pieB.reduce((s, d) => s + d.value, 0),
+    [pieB],
+  );
 
   const barB = React.useMemo(() => {
     if (!data) return [];
@@ -340,8 +681,8 @@ export function DashboardPropertyAnalytics() {
       { name: "Bhawan + shed (B1)", value: data.sectionB.bhawans },
       { name: "Building (B2)", value: data.sectionB.buildingsOtherThanBhawan },
       { name: "Under construction (B3)", value: b3 },
-      { name: "Vacant plots (B4)", value: data.sectionB.vacantPlots },
-      { name: "No bhawan / no plot (B5)", value: data.sectionB.noBhawanNoPlots },
+      { name: "No bhawan / no plot (B4)", value: data.sectionB.noBhawanNoPlots },
+      { name: "Vacant plots (B5)", value: data.sectionB.vacantPlots },
     ];
   }, [data]);
 
@@ -583,7 +924,10 @@ export function DashboardPropertyAnalytics() {
                         maxBarSize={28}
                       >
                         {barB.map((_, i) => (
-                          <Cell key={i} fill={B_COLORS[i % B_COLORS.length]} />
+                          <Cell
+                            key={i}
+                            fill={B_BAR_COLORS[i % B_BAR_COLORS.length]}
+                          />
                         ))}
                       </Bar>
                     </BarChart>
@@ -640,90 +984,107 @@ export function DashboardPropertyAnalytics() {
                 <ChartCard
                   title="Structure share"
                   subtitle="Donut view of land / building classification"
+                  contentClassName="min-h-0"
                 >
                   {pieB.length === 0 ? (
                     <EmptyChart label="No structure data in this scope" />
                   ) : (
-                    <ResponsiveContainer width="100%" height={280}>
-                      <PieChart>
-                        <Pie
-                          data={pieB}
-                          cx="50%"
-                          cy="50%"
-                          innerRadius={68}
-                          outerRadius={96}
-                          paddingAngle={2}
-                          dataKey="value"
-                          nameKey="name"
-                          strokeWidth={2}
-                          stroke="var(--card)"
+                    <div className="flex flex-col gap-2">
+                      <div className="h-[378px] w-full shrink-0">
+                        <ResponsiveContainer
+                          width="100%"
+                          height="100%"
+                          className="[&_.recharts-surface]:outline-none"
                         >
-                          {pieB.map((entry) => (
-                            <Cell key={entry.name} fill={entry.fill} />
-                          ))}
-                        </Pie>
-                        <Tooltip
-                          contentStyle={{
-                            borderRadius: "12px",
-                            border: "1px solid var(--border)",
-                            background: "var(--card)",
-                          }}
-                          formatter={(v: number) => [v, "Count"]}
-                        />
-                        <Legend
-                          verticalAlign="bottom"
-                          height={36}
-                          formatter={(value) => (
-                            <span className="text-xs text-foreground">{value}</span>
-                          )}
-                        />
-                      </PieChart>
-                    </ResponsiveContainer>
+                          <PieChart>
+                            <Pie
+                              data={pieB}
+                              cx="50%"
+                              cy="50%"
+                              innerRadius={72}
+                              outerRadius={153}
+                              paddingAngle={2.25}
+                              minAngle={1.8}
+                              dataKey="value"
+                              nameKey="name"
+                              strokeWidth={3}
+                              stroke="var(--card)"
+                              label={structureSharePieLabel}
+                              labelLine={false}
+                            >
+                              {pieB.map((entry) => (
+                                <Cell key={entry.name} fill={entry.fill} />
+                              ))}
+                            </Pie>
+                            <Tooltip
+                              content={(props) => (
+                                <PieDonutTooltipContent
+                                  active={props.active}
+                                  payload={props.payload}
+                                  sumOfSliceValues={pieBSum}
+                                />
+                              )}
+                            />
+                          </PieChart>
+                        </ResponsiveContainer>
+                      </div>
+                      <StructureShareLegendGrid items={pieB} sum={pieBSum} />
+                    </div>
                   )}
                 </ChartCard>
 
                 <ChartCard
                   title="Registration & units"
                   subtitle="Distribution by record type (A1–A4)"
+                  contentClassName="min-h-0"
                 >
                   {pieA.length === 0 ? (
                     <EmptyChart label="No data in this scope" />
                   ) : (
-                    <ResponsiveContainer width="100%" height={280}>
-                      <PieChart>
-                        <Pie
-                          data={pieA}
-                          cx="50%"
-                          cy="50%"
-                          innerRadius={68}
-                          outerRadius={96}
-                          paddingAngle={2}
-                          dataKey="value"
-                          nameKey="name"
-                          strokeWidth={2}
-                          stroke="var(--card)"
+                    <div className="flex flex-col gap-2">
+                      <div className="h-[378px] w-full shrink-0">
+                        <ResponsiveContainer
+                          width="100%"
+                          height="100%"
+                          className="[&_.recharts-surface]:outline-none"
                         >
-                          {pieA.map((entry) => (
-                            <Cell key={entry.name} fill={entry.fill} />
-                          ))}
-                        </Pie>
-                        <Tooltip
-                          contentStyle={{
-                            borderRadius: "12px",
-                            border: "1px solid var(--border)",
-                            background: "var(--card)",
-                          }}
-                          formatter={(v: number) => [v, "Count"]}
-                        />
-                        <Legend
-                          verticalAlign="bottom"
-                          height={36}
-                          formatter={(value) => (
-                            <span className="text-xs text-foreground">{value}</span>
-                          )}
-                        />
-                      </PieChart>
-                    </ResponsiveContainer>
+                          <PieChart>
+                            <Pie
+                              data={pieA}
+                              cx="50%"
+                              cy="50%"
+                              innerRadius={72}
+                              outerRadius={153}
+                              paddingAngle={2.25}
+                              minAngle={1.8}
+                              dataKey="value"
+                              nameKey="name"
+                              strokeWidth={3}
+                              stroke="var(--card)"
+                              label={registrationSharePieLabel}
+                              labelLine={false}
+                            >
+                              {pieA.map((entry) => (
+                                <Cell key={entry.name} fill={entry.fill} />
+                              ))}
+                            </Pie>
+                            <Tooltip
+                              content={(props) => (
+                                <PieDonutTooltipContent
+                                  active={props.active}
+                                  payload={props.payload}
+                                  sumOfSliceValues={pieASum}
+                                />
+                              )}
+                            />
+                          </PieChart>
+                        </ResponsiveContainer>
+                      </div>
+                      <RegistrationUnitsLegendGrid
+                        items={pieA}
+                        sum={pieASum}
+                      />
+                    </div>
                   )}
                 </ChartCard>
               </section>
@@ -733,9 +1094,9 @@ export function DashboardPropertyAnalytics() {
                 adjoining and additional rows are separate units. B1 is completed
                 bhawan plus shed; B3 is bhawan under construction only. B2 counts
                 bhawan type “building” only (self-made shed and NA are not in B1–B3).
-                B4 lists vacant plots plus self made sheds that have a vacant plot
-                status; indented rows are fit vs not fit for construction. The
-                bottom total is B1,B2,B3, B4 & B5 (no overlap).
+                B4 is no bhawan / no plot. B5 lists vacant plots plus self made sheds
+                that have a vacant plot status; indented rows are fit vs not fit for
+                construction. The bottom total is B1,B2,B3, B4 & B5 (no overlap).
               </p>
             </>
           ) : null}
@@ -802,16 +1163,21 @@ function ChartCard({
   title,
   subtitle,
   children,
+  contentClassName,
 }: {
   title: string;
   subtitle: string;
   children: React.ReactNode;
+  /** Merged with default `min-h-[280px]`; pass `min-h-0` to size to content. */
+  contentClassName?: string;
 }) {
   return (
     <div className="rounded-2xl border border-border/80 bg-card p-4 shadow-sm sm:p-5">
       <h3 className="text-sm font-semibold text-foreground">{title}</h3>
       <p className="mb-2 text-xs text-muted-foreground">{subtitle}</p>
-      <div className="min-h-[280px] w-full">{children}</div>
+      <div className={cn("min-h-[280px] w-full", contentClassName)}>
+        {children}
+      </div>
     </div>
   );
 }
@@ -865,14 +1231,14 @@ function structureLandTypeTableRows(
     },
     {
       code: "B4",
-      label: "No. of Vacant Plots",
-      value: vacantTotal,
-      subRows,
+      label: "No Bhawan No Plots",
+      value: data.sectionB.noBhawanNoPlots,
     },
     {
       code: "B5",
-      label: "No Bhawan No Plots",
-      value: data.sectionB.noBhawanNoPlots,
+      label: "No. of Vacant Plots",
+      value: vacantTotal,
+      subRows,
     },
   ];
 }
