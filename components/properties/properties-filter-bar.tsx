@@ -49,6 +49,8 @@ export type PropertyListFilterValues = {
   registrationTypes: string[];
   constructionStatuses: string[];
   bhawanTypes: string[];
+  /** Vacant plot / self made shed status (API `vacantPlotStatus`). */
+  vacantPlotStatuses: string[];
 };
 
 export const EMPTY_PROPERTY_LIST_FILTERS: PropertyListFilterValues = {
@@ -62,6 +64,7 @@ export const EMPTY_PROPERTY_LIST_FILTERS: PropertyListFilterValues = {
   registrationTypes: [],
   constructionStatuses: [],
   bhawanTypes: [],
+  vacantPlotStatuses: [],
 };
 
 export function countActivePropertyFilters(
@@ -77,7 +80,8 @@ export function countActivePropertyFilters(
     (f.verificationStatuses.length ? 1 : 0) +
     (f.registrationTypes.length ? 1 : 0) +
     (f.constructionStatuses.length ? 1 : 0) +
-    (f.bhawanTypes.length ? 1 : 0)
+    (f.bhawanTypes.length ? 1 : 0) +
+    (f.vacantPlotStatuses.length ? 1 : 0)
   );
 }
 
@@ -706,6 +710,37 @@ export function PropertiesFilterBar({
                   }))}
                   values={draftFilters.bhawanTypes}
                   onChange={(bhawanTypes) => patchDraft({ bhawanTypes })}
+                  triggerClassName={selectTriggerClass}
+                  menuZIndexClass="z-[400]"
+                />
+              </FilterField>
+
+              <FilterField
+                label="Vacant plot status"
+                htmlFor="dlg-filter-vps"
+                hint="Matches stored status on vacant plot and self made shed rows."
+              >
+                <EnumMultiSelectDropdown
+                  id="dlg-filter-vps"
+                  emptyLabel="All statuses"
+                  options={[
+                    {
+                      value: "fit_for_construction",
+                      label: "Fit for construction",
+                    },
+                    {
+                      value: "fit_for_construction_later_stage",
+                      label: "Fit for construction at later stage",
+                    },
+                    {
+                      value: "not_fit_for_construction",
+                      label: "Not fit for construction",
+                    },
+                  ]}
+                  values={draftFilters.vacantPlotStatuses}
+                  onChange={(vacantPlotStatuses) =>
+                    patchDraft({ vacantPlotStatuses })
+                  }
                   triggerClassName={selectTriggerClass}
                   menuZIndexClass="z-[400]"
                 />

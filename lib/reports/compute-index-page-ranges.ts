@@ -43,8 +43,8 @@ export function computeIndexPageRanges(
    * Summary section always has at least 1 page.
    */
   const calculateSummaryPages = (zone: ZoneSummaryWithDetails): number => {
-    // Base summary table: A1-A4 (5 rows) + B1-B5 with sub-items (8 rows) + header (3 rows) = 16 lines
-    let lines = 16;
+    // Base summary table: A1-A4 (5 rows) + B1-B5 with sub-items (9 rows incl. B4 × 3) + header (3 rows) = 17 lines
+    let lines = 17;
 
     // Additional Units Details table
     if (zone.sectionA.additionalUnits > 0 && zone.additionalUnitsDetails.length > 0) {

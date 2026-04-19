@@ -318,6 +318,9 @@ export function PropertyEditForm({
             >
               <option value="">Not set</option>
               <option value="fit_for_construction">Fit for construction</option>
+              <option value="fit_for_construction_later_stage">
+                Fit for construction at later stage
+              </option>
               <option value="not_fit_for_construction">
                 Not fit for construction
               </option>

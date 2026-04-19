@@ -67,6 +67,7 @@ type PropertyAnalyticsResponse = {
     vacantPlots: number;
     /** Present from API v2; older responses omit and UI treats as 0. */
     vacantPlotsFitForConstruction?: number;
+    vacantPlotsFitForConstructionLaterStage?: number;
     notFitForConstructionPlots: number;
     noBhawanNoPlots: number;
     total: number;
@@ -828,10 +829,16 @@ function structureLandTypeTableRows(
   data: PropertyAnalyticsResponse,
 ): AnalyticsTableRow[] {
   const fit = data.sectionB.vacantPlotsFitForConstruction ?? 0;
+  const fitLater =
+    data.sectionB.vacantPlotsFitForConstructionLaterStage ?? 0;
   const notFit = data.sectionB.notFitForConstructionPlots;
   const vacantTotal = data.sectionB.vacantPlots;
   const subRows: { label: string; value: number }[] = [
     { label: "Fit for construction", value: fit },
+    {
+      label: "Fit for construction at later stage",
+      value: fitLater,
+    },
     { label: "Not fit for construction", value: notFit },
   ];
   return [

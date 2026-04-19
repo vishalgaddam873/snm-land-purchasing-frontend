@@ -61,6 +61,7 @@ export function vacantPlotStatusLabel(
   if (status == null || !String(status).trim()) return "—";
   const m: Record<string, string> = {
     fit_for_construction: "Fit for construction",
+    fit_for_construction_later_stage: "Fit for construction at later stage",
     not_fit_for_construction: "Not fit for construction",
   };
   return m[status] ?? status;

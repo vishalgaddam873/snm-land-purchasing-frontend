@@ -84,6 +84,7 @@ function appendListFilters(qs: URLSearchParams, fv: PropertyListFilterValues) {
   fv.registrationTypes.forEach((v) => qs.append("registrationType", v));
   fv.constructionStatuses.forEach((v) => qs.append("constructionStatus", v));
   fv.bhawanTypes.forEach((v) => qs.append("bhawanType", v));
+  fv.vacantPlotStatuses.forEach((v) => qs.append("vacantPlotStatus", v));
 }
 
 type PageRoot = { propertiesPage: PropertiesPageState };
@@ -188,6 +189,7 @@ function isUnfilteredPropertyExport(
   if (fv.registrationTypes.length) return false;
   if (fv.constructionStatuses.length) return false;
   if (fv.bhawanTypes.length) return false;
+  if (fv.vacantPlotStatuses.length) return false;
   return true;
 }
 

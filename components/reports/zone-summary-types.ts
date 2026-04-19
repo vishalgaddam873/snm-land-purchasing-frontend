@@ -48,6 +48,7 @@ export type ZoneSummaryWithDetails = {
     bhawansUnderConstruction: number;
     vacantPlots: number;
     vacantPlotsFitForConstruction: number;
+    vacantPlotsFitForConstructionLaterStage: number;
     vacantPlotsSelfMadeShed: number;
     noBhawanNoPlots: number;
     notFitForConstruction: number;
@@ -77,6 +78,7 @@ export type DepartmentOverallSummary = {
     bhawansUnderConstruction: number;
     vacantPlots: number;
     vacantPlotsFitForConstruction: number;
+    vacantPlotsFitForConstructionLaterStage: number;
     vacantPlotsSelfMadeShed: number;
     noBhawanNoPlots: number;
     notFitForConstruction: number;
@@ -137,6 +139,7 @@ export function vacantPlotStatusLabel(v: string | null): string {
   if (!v) return "";
   const map: Record<string, string> = {
     fit_for_construction: "Fit for construction",
+    fit_for_construction_later_stage: "Fit for construction at later stage",
     not_fit_for_construction: "Not fit for construction",
   };
   return map[v] ?? v;

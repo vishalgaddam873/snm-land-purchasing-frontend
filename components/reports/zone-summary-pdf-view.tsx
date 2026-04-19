@@ -71,6 +71,7 @@ function SectionBStructureRows({
   sectionB: ZoneSummaryWithDetails["sectionB"];
 }) {
   const fit = sectionB.vacantPlotsFitForConstruction ?? 0;
+  const fitLater = sectionB.vacantPlotsFitForConstructionLaterStage ?? 0;
   const notFit = sectionB.notFitForConstruction;
   return (
     <>
@@ -100,6 +101,13 @@ function SectionBStructureRows({
         <td className="code-col"></td>
         <td className="label-col sub-label">Fit for construction</td>
         <td className="value-col">{fit}</td>
+      </tr>
+      <tr>
+        <td className="code-col"></td>
+        <td className="label-col sub-label">
+          Fit for construction at later stage
+        </td>
+        <td className="value-col">{fitLater}</td>
       </tr>
       <tr>
         <td className="code-col"></td>
