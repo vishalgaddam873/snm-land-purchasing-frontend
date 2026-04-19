@@ -21,6 +21,7 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { compareZoneNumbers } from "@/lib/zone-number-sort";
 import { cn } from "@/lib/utils";
 import {
   Bar,
@@ -77,13 +78,18 @@ type PropertyAnalyticsResponse = {
 const A_COLORS = ["#059669", "#d97706", "#0284c7", "#7c3aed"];
 const B_COLORS = ["#2563eb", "#64748b", "#0d9488", "#16a34a", "#ea580c"];
 
+function zoneDeptId(z: ZoneSelectOption): string {
+  return z.departmentId != null && z.departmentId !== ""
+    ? String(z.departmentId)
+    : "";
+}
+
 function sortZonesForSelect(zones: ZoneSelectOption[]): ZoneSelectOption[] {
-  return [...zones].sort((x, y) =>
-    (x.zoneNumber ?? "").localeCompare(y.zoneNumber ?? "", undefined, {
-      numeric: true,
-      sensitivity: "base",
-    }),
-  );
+  return [...zones].sort((x, y) => {
+    const c = compareZoneNumbers(x.zoneNumber ?? "", y.zoneNumber ?? "");
+    if (c !== 0) return c;
+    return zoneDeptId(x).localeCompare(zoneDeptId(y));
+  });
 }
 
 const selectTriggerClass =

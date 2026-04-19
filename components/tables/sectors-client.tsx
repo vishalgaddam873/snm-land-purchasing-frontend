@@ -29,6 +29,7 @@ import Stack from "@mui/material/Stack";
 import { type GridColDef } from "@mui/x-data-grid";
 import { isPaginatedList } from "@/lib/api/paginated-list";
 import { DEFAULT_TABLE_PAGE_SIZE } from "@/hooks/use-client-pagination";
+import { compareZoneNumbers } from "@/lib/zone-number-sort";
 import { cn } from "@/lib/utils";
 import { Pencil, Plus, Trash2 } from "lucide-react";
 import * as React from "react";
@@ -73,14 +74,20 @@ function zoneOptionId(z: ZoneSelectOption): string {
   return "";
 }
 
-function compareZoneNumbers(a: string, b: string): number {
-  return a.localeCompare(b, undefined, { numeric: true, sensitivity: "base" });
-}
-
 function sortZonesForSelect(zones: ZoneSelectOption[]): ZoneSelectOption[] {
-  return [...zones].sort((x, y) =>
-    compareZoneNumbers(x.zoneNumber ?? "", y.zoneNumber ?? ""),
-  );
+  return [...zones].sort((x, y) => {
+    const c = compareZoneNumbers(x.zoneNumber ?? "", y.zoneNumber ?? "");
+    if (c !== 0) return c;
+    const da =
+      x.departmentId != null && x.departmentId !== ""
+        ? String(x.departmentId)
+        : "";
+    const db =
+      y.departmentId != null && y.departmentId !== ""
+        ? String(y.departmentId)
+        : "";
+    return da.localeCompare(db);
+  });
 }
 
 async function fetchAllActiveZonesForSelect(): Promise<ZoneSelectOption[]> {

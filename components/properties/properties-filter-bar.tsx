@@ -33,6 +33,7 @@ import {
   sortBranchesForSelect,
   type BranchOption,
 } from "@/components/properties/property-helpers";
+import { compareZoneNumbers } from "@/lib/zone-number-sort";
 import { cn } from "@/lib/utils";
 import { Menu as MenuPrimitive } from "@base-ui/react/menu";
 import { CheckIcon, ChevronDownIcon, Search, SlidersHorizontal } from "lucide-react";
@@ -282,12 +283,11 @@ const selectTriggerClass =
   "h-10 w-full rounded-xl border-border/80 bg-background text-[13px] shadow-sm";
 
 function sortZonesForSelect(zones: ZoneSelectOption[]): ZoneSelectOption[] {
-  return [...zones].sort((x, y) =>
-    (x.zoneNumber ?? "").localeCompare(y.zoneNumber ?? "", undefined, {
-      numeric: true,
-      sensitivity: "base",
-    }),
-  );
+  return [...zones].sort((x, y) => {
+    const c = compareZoneNumbers(x.zoneNumber ?? "", y.zoneNumber ?? "");
+    if (c !== 0) return c;
+    return zoneDeptId(x).localeCompare(zoneDeptId(y));
+  });
 }
 
 function zoneDeptId(z: ZoneSelectOption): string {

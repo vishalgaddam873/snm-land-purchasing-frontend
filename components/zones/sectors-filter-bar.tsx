@@ -23,6 +23,7 @@ import {
   type ZoneSelectOption,
 } from "@/components/branches/zone-searchable-select";
 import { labelFromSnake } from "@/components/properties/property-helpers";
+import { compareZoneNumbers } from "@/lib/zone-number-sort";
 import { cn } from "@/lib/utils";
 import { Search, SlidersHorizontal } from "lucide-react";
 import * as React from "react";
@@ -71,12 +72,19 @@ const selectTriggerClass =
   "h-10 w-full rounded-xl border-border/80 bg-background text-[13px] shadow-sm";
 
 function sortZones(zones: ZoneSelectOption[]): ZoneSelectOption[] {
-  return [...zones].sort((x, y) =>
-    (x.zoneNumber ?? "").localeCompare(y.zoneNumber ?? "", undefined, {
-      numeric: true,
-      sensitivity: "base",
-    }),
-  );
+  return [...zones].sort((x, y) => {
+    const c = compareZoneNumbers(x.zoneNumber ?? "", y.zoneNumber ?? "");
+    if (c !== 0) return c;
+    const da =
+      x.departmentId != null && x.departmentId !== ""
+        ? String(x.departmentId)
+        : "";
+    const db =
+      y.departmentId != null && y.departmentId !== ""
+        ? String(y.departmentId)
+        : "";
+    return da.localeCompare(db);
+  });
 }
 
 function zoneOptionId(z: ZoneSelectOption): string {
