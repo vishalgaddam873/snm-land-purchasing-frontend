@@ -623,6 +623,30 @@ function indexConcernedPpOverall(departmentCode: string | undefined): string {
   return concernedPpFromDepartmentCode(c);
 }
 
+/** Merge S.No. / Z.No. / zone / branch cells for consecutive rows in the same zone + branch group. */
+function masterTableMergeGroupKey(row: PropertyTableRow): string {
+  return `${row.zoneNumber}\u0001${row.branchName}`;
+}
+
+/**
+ * "Details of All Zones Properties" drops No-Land rows but kept backend `sno` (global across zones,
+ * includes filtered branches). Renumber 1, 2, 3… for each visible branch block in table order.
+ */
+function renumberZoneMasterTableSerials(
+  rows: PropertyTableRow[],
+): PropertyTableRow[] {
+  let sno = 0;
+  let lastKey = "";
+  return rows.map((row) => {
+    const key = masterTableMergeGroupKey(row);
+    if (key !== lastKey) {
+      sno += 1;
+      lastKey = key;
+    }
+    return { ...row, sno };
+  });
+}
+
 export function ZoneSummaryPdfView({ reportData }: Props) {
   const [domPageRanges, setDomPageRanges] = useState<Map<
     string,
@@ -694,9 +718,10 @@ export function ZoneSummaryPdfView({ reportData }: Props) {
   const allZoneMasterRows = useMemo(() => {
     const summaries = reportData?.zoneSummaries;
     if (!summaries?.length) return [];
-    return summaries
+    const filtered = summaries
       .flatMap((z) => z.allProperties)
       .filter((row) => !isNoLandAreaHeld(row.areaHeld));
+    return renumberZoneMasterTableSerials(filtered);
   }, [reportData?.zoneSummaries]);
 
   const indexFrontDisplay = useMemo(() => {
@@ -1058,11 +1083,6 @@ type MergedRowInfo = {
   rowSpan: number;
 };
 
-/** Merge S.No. / Z.No. / zone / sector / branch cells only for consecutive rows in the same group. */
-function masterTableMergeGroupKey(row: PropertyTableRow): string {
-  return `${row.zoneNumber}\u0001${row.branchName}`;
-}
-
 function computeMergeInfo(properties: PropertyTableRow[]): Map<number, MergedRowInfo> {
   const mergeMap = new Map<number, MergedRowInfo>();
 
@@ -1119,10 +1139,15 @@ function MasterPropertyDataTable({
           {!isZoneMaster && <th>Property Details</th>}
           <th>Dimenssions of Plot Held (Area)</th>
           {!isZoneMaster && (
-            <th>Bhawan Constructed or Not / Under Construction</th>
+            <th>
+              Bhawan Constructed or Not / Under Construction / Not Applicable
+            </th>
           )}
           {!isZoneMaster && <th>Located at (Place)</th>}
-          <th>Utilization of Plots (Bhawan / Building / Shed / Vacant)</th>
+          <th>
+            Utilization of Plots (Bhawan / Building / Shed / Self made shed /
+            Vacant / Not Applicable)
+          </th>
           {!isZoneMaster && <th>Remarks</th>}
         </tr>
       </thead>
@@ -1282,7 +1307,10 @@ function ZonePdfSection({ zone }: { zone: ZoneSummaryWithDetails }) {
                   <th>Property Details</th>
                   <th>Dimenssions of Plot Held (Area)</th>
                   <th>Located at (Place)</th>
-                  <th>Utilization of Plots (Bhawan / Building / Shed / Vacant)</th>
+                  <th>
+                    Utilization of Plots (Bhawan / Building / Shed / Self made
+                    shed / Vacant / Not Applicable)
+                  </th>
                 </tr>
               </thead>
               <tbody>

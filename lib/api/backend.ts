@@ -41,8 +41,11 @@ async function backendRequest(
     });
   } catch (err) {
     const original = err instanceof Error ? err.message : String(err);
+    const base = getBackendBaseUrl();
     throw new Error(
-      `Cannot reach API at ${url} (${original}). Start the Nest API (land-purchasing-backend) and set BACKEND_URL in .env.local if it is not on 127.0.0.1:3000.`,
+      `Cannot reach API at ${url} (${original}). ` +
+        `Start the Nest server: cd land-purchasing-backend && npm run start:dev — ` +
+        `its PORT (see backend .env, default 3000) must match BACKEND_URL in land-purchasing-frontend/.env.local (currently ${base}).`,
     );
   }
 }

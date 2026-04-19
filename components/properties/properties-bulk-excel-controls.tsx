@@ -19,6 +19,15 @@ type ImportIssue = {
   mapped: Record<string, string>;
 };
 
+type ImportUpdateRow = {
+  excelRow: number;
+  propertyName: string;
+  branchName: string;
+  field: string;
+  previousValue: string;
+  newValue: string;
+};
+
 type ImportResult = {
   sheetName?: string;
   inserted?: number;
@@ -26,7 +35,85 @@ type ImportResult = {
   skipped?: ImportIssue[];
   errors?: ImportIssue[];
   message?: string;
+  importReportXlsxBase64?: string;
+  importReportFilename?: string;
+  importReportUpdates?: ImportUpdateRow[];
 };
+
+function downloadBase64AsXlsx(base64: string, filename: string) {
+  const bin = atob(base64);
+  const bytes = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+  const blob = new Blob([bytes], {
+    type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename || "property-import-updated.xlsx";
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function escapeCsvCell(value: string): string {
+  const s = String(value ?? "");
+  if (/[",\r\n]/.test(s)) return `"${s.replace(/"/g, '""')}"`;
+  return s;
+}
+
+/** Opens cleanly in Excel; same columns as the server “Updated” sheet. */
+function downloadUpdatesAsCsv(rows: ImportUpdateRow[], filename: string) {
+  const headers = [
+    "Excel row",
+    "Property name",
+    "Branch name",
+    "Field",
+    "Previous value",
+    "New value",
+  ];
+  const lines = [
+    headers.map(escapeCsvCell).join(","),
+    ...rows.map((r) =>
+      [
+        String(r.excelRow),
+        r.propertyName,
+        r.branchName,
+        r.field,
+        r.previousValue,
+        r.newValue,
+      ]
+        .map(escapeCsvCell)
+        .join(","),
+    ),
+  ];
+  const blob = new Blob(["\ufeff" + lines.join("\n")], {
+    type: "text/csv;charset=utf-8",
+  });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename.endsWith(".csv") ? filename : `${filename}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function downloadImportUpdatesReport(data: ImportResult) {
+  const base = (
+    data.importReportFilename ?? "property-import-updated"
+  ).replace(/\.xlsx$/i, "");
+  if (data.importReportXlsxBase64?.length) {
+    downloadBase64AsXlsx(
+      data.importReportXlsxBase64,
+      `${base}.xlsx`,
+    );
+    return;
+  }
+  const rows = data.importReportUpdates;
+  if (rows?.length) {
+    downloadUpdatesAsCsv(rows, `${base}.csv`);
+    return;
+  }
+}
 
 export function PropertiesBulkExcelControls({
   onImported,
@@ -85,6 +172,16 @@ export function PropertiesBulkExcelControls({
       }
       setResult(data);
       setResultOpen(true);
+      if (
+        data.importReportXlsxBase64?.length ||
+        (data.importReportUpdates?.length ?? 0) > 0
+      ) {
+        try {
+          downloadImportUpdatesReport(data);
+        } catch {
+          /* user can retry via dialog */
+        }
+      }
       onImported();
     } finally {
       setUploadLoading(false);
@@ -125,14 +222,14 @@ export function PropertiesBulkExcelControls({
       </Button>
 
       <Dialog open={resultOpen} onOpenChange={setResultOpen}>
-        <DialogContent className="max-h-[85vh] max-w-lg overflow-y-auto sm:max-w-xl">
+        <DialogContent className="flex max-h-[85vh] max-w-lg flex-col gap-4 overflow-hidden sm:max-w-xl">
           <DialogHeader>
             <DialogTitle>Import finished</DialogTitle>
             <DialogDescription>
               Sheet: {result?.sheetName ?? "—"}
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-3 text-sm">
+          <div className="min-h-0 flex-1 space-y-3 overflow-y-auto text-sm">
             <p>
               <span className="font-medium">Inserted:</span>{" "}
               {result?.inserted ?? 0}
@@ -140,6 +237,19 @@ export function PropertiesBulkExcelControls({
               <span className="font-medium">Updated:</span>{" "}
               {result?.updated ?? 0}
             </p>
+            {(result?.importReportXlsxBase64?.length ?? 0) > 0 ||
+            (result?.importReportUpdates?.length ?? 0) > 0 ? (
+              <p className="text-muted-foreground">
+                A file with your{" "}
+                <span className="font-medium">updated field changes</span>{" "}
+                was downloaded. Use the button below to download it again.
+              </p>
+            ) : (result?.updated ?? 0) > 0 ? (
+              <p className="text-muted-foreground">
+                No change report — updated rows already matched the database (no
+                tracked field differences).
+              </p>
+            ) : null}
             {skipped.length > 0 ? (
               <div>
                 <p className="font-medium text-muted-foreground">
@@ -177,9 +287,28 @@ export function PropertiesBulkExcelControls({
               </div>
             ) : null}
           </div>
-          <DialogFooter>
+          <DialogFooter className="!flex-row flex-shrink-0 flex-wrap justify-end gap-2 rounded-b-xl border-t bg-muted/50 p-4 -mx-4 -mb-4">
+            {(result?.importReportXlsxBase64?.length ?? 0) > 0 ||
+            (result?.importReportUpdates?.length ?? 0) > 0 ? (
+              <Button
+                type="button"
+                className="rounded-xl"
+                onClick={() => {
+                  if (!result) return;
+                  try {
+                    downloadImportUpdatesReport(result);
+                  } catch {
+                    window.alert("Could not download the updated-fields file.");
+                  }
+                }}
+              >
+                <FileDown className="mr-2 size-4 shrink-0" />
+                Download updated fields
+              </Button>
+            ) : null}
             <Button
               type="button"
+              variant="outline"
               className="rounded-xl"
               onClick={() => setResultOpen(false)}
             >
