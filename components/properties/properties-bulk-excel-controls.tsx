@@ -172,16 +172,6 @@ export function PropertiesBulkExcelControls({
       }
       setResult(data);
       setResultOpen(true);
-      if (
-        data.importReportXlsxBase64?.length ||
-        (data.importReportUpdates?.length ?? 0) > 0
-      ) {
-        try {
-          downloadImportUpdatesReport(data);
-        } catch {
-          /* user can retry via dialog */
-        }
-      }
       onImported();
     } finally {
       setUploadLoading(false);
@@ -240,9 +230,9 @@ export function PropertiesBulkExcelControls({
             {(result?.importReportXlsxBase64?.length ?? 0) > 0 ||
             (result?.importReportUpdates?.length ?? 0) > 0 ? (
               <p className="text-muted-foreground">
-                A file with your{" "}
-                <span className="font-medium">updated field changes</span>{" "}
-                was downloaded. Use the button below to download it again.
+                Use{" "}
+                <span className="font-medium">Download updated fields</span>{" "}
+                below to save a file of changed fields (Excel or CSV).
               </p>
             ) : (result?.updated ?? 0) > 0 ? (
               <p className="text-muted-foreground">
