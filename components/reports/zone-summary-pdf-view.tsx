@@ -1007,10 +1007,7 @@ function ZonePdfSection({ zone }: { zone: ZoneSummaryWithDetails }) {
                     <td>{row.branchName}</td>
                     <td>{row.areaHeld}</td>
                     <td className="remarks">
-                      {row.bhawanType === "self_made_shed"
-                        ? `Self made shed — ${vacantPlotStatusLabel(row.vacantPlotStatus) || remarkHtmlToText(row.remarks)}`
-                        : vacantPlotStatusLabel(row.vacantPlotStatus) ||
-                          remarkHtmlToText(row.remarks)}
+                      {vacantPlotStatusLabel(row.vacantPlotStatus) || "—"}
                     </td>
                   </tr>
                 ))}
