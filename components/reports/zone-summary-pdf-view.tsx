@@ -3,13 +3,20 @@
 import { useLayoutEffect, useMemo, useState, type CSSProperties } from "react";
 import {
   FullReportData,
+  PropertyTableRow,
   PropertyTableRowHighlight,
   ZoneSummaryWithDetails,
   bhawanTypeLabel,
   vacantPlotStatusLabel,
 } from "./zone-summary-types";
-import { computeIndexPageRanges } from "@/lib/reports/compute-index-page-ranges";
-import { measureZoneIndexPageRanges } from "@/lib/reports/measure-zone-index-pages";
+import {
+  computeIndexPageRanges,
+  estimatePagesBeforeFirstZone,
+} from "@/lib/reports/compute-index-page-ranges";
+import {
+  measureFrontMatterPageCount,
+  measureZoneIndexPageRanges,
+} from "@/lib/reports/measure-zone-index-pages";
 
 function zoneDataCellClass(
   highlight: PropertyTableRowHighlight | undefined
@@ -62,6 +69,15 @@ function remarkHtmlToText(input: string): string {
     .trim();
 
   return text;
+}
+
+/** Matches backend `isNoLandAreaHeld` in reports.service (plot summary exclusion). */
+function isNoLandAreaHeld(areaHeld: string | undefined | null): boolean {
+  const t = String(areaHeld ?? "")
+    .trim()
+    .replace(/\s+/g, " ")
+    .toLowerCase();
+  return t === "no land";
 }
 
 /** Structure / land type B1–B5 (aligned with dashboard detailed breakdown). */
@@ -135,7 +151,7 @@ const styles = `
     margin: 12mm;
   }
 
-  /* Pages WITHOUT page numbers (Index + Final Summary) */
+  /* INDEX only: no header number (numbering starts on Final Summary). */
   @page noNumber {
     size: A4 landscape;
     margin: 12mm;
@@ -145,8 +161,8 @@ const styles = `
   }
 
   /*
-   * Zone-only sheet counter (INDEX + Final Summary use @page noNumber — they must not advance this).
-   * counter(page) always counts every physical sheet; in Chrome, resetting it for margin boxes is unreliable.
+   * Numbered sheets: Final Summary onward. counter-increment runs once per reportPage sheet.
+   * INDEX uses @page noNumber and does not advance lp-zone-sheet.
    */
   @page reportPage {
     size: A4 landscape;
@@ -349,6 +365,21 @@ const styles = `
     background: #fff;
   }
 
+  /* ZONE MASTER (all zones, one table) */
+  .zone-master-page {
+    margin-top: 28px;
+    margin-bottom: 40px;
+  }
+  .zone-master-title {
+    font-size: 16px;
+    font-weight: bold;
+    text-align: center;
+    margin-bottom: 16px;
+    padding: 10px;
+    background: #d9e1f2;
+    border: 1px solid #666;
+  }
+
   /* ZONE DATA TABLE */
   .zone-data-page {
     margin-bottom: 40px;
@@ -486,10 +517,17 @@ const styles = `
       page-break-after: auto;
     }
 
-    /* Assign page types */
-    .index-page,
-    .final-summary-page {
+    /* INDEX: unnumbered; reset sheet counter so Final Summary prints as page 1 */
+    .index-page {
       page: noNumber;
+      counter-reset: lp-zone-sheet 0;
+      counter-set: lp-zone-sheet 0;
+      page-break-after: always;
+      break-after: page;
+    }
+
+    .final-summary-page {
+      page: reportPage;
     }
 
     .zone-data-page,
@@ -497,14 +535,9 @@ const styles = `
       page: reportPage;
     }
 
-    /*
-     * First zone sheet should show "1" after INDEX + Final Summary (incl. Summary of Property Details).
-     * Reset lp-zone-sheet after front matter; also on .zone-pages-start so single-zone reports work.
-     */
-    .lp-report-zone-numbering-start,
-    .zone-pages-start {
+    /* Single-zone report: no INDEX/Final Summary — start numbering at first zone block */
+    .zone-pages-start.zone-pages-start--sheet-one {
       counter-reset: lp-zone-sheet 0;
-      /* Fallback where @page counter-increment is not applied to lp-zone-sheet */
       counter-set: lp-zone-sheet 0;
     }
 
@@ -524,7 +557,7 @@ const styles = `
   }
 `;
 
-/** Zero-size node after Final Summary so print layout applies counter reset before zone blocks. */
+/** Zero-size node after consolidated table (print layout anchor). */
 const ZONE_NUMBERING_ANCHOR_STYLE: CSSProperties = {
   height: 0,
   overflow: "hidden",
@@ -586,7 +619,9 @@ export function ZoneSummaryPdfView({ reportData }: Props) {
       const zps = root.querySelector(".zone-pages-start");
       if (!zps || !(zps instanceof HTMLElement)) return;
       const ids = summaries.map((z) => z.zoneId);
-      const m = measureZoneIndexPageRanges(zps, ids);
+      const front =
+        root instanceof HTMLElement ? measureFrontMatterPageCount(root) : 0;
+      const m = measureZoneIndexPageRanges(zps, ids, front);
       setDomPageRanges(m);
     };
 
@@ -622,23 +657,40 @@ export function ZoneSummaryPdfView({ reportData }: Props) {
     };
   }, [reportData]);
 
+  const allZoneMasterRows = useMemo(() => {
+    const summaries = reportData?.zoneSummaries;
+    if (!summaries?.length) return [];
+    return summaries
+      .flatMap((z) => z.allProperties)
+      .filter((row) => !isNoLandAreaHeld(row.areaHeld));
+  }, [reportData?.zoneSummaries]);
+
   /** Must run before any early return (Rules of Hooks). */
   const indexWithPages = useMemo(() => {
     const summaries = reportData?.zoneSummaries;
     if (!summaries?.length) return [];
-    const fallback = computeIndexPageRanges(summaries);
+    const pagesBeforeFirstZone = estimatePagesBeforeFirstZone(
+      allZoneMasterRows.length,
+    );
+    const fallback = computeIndexPageRanges(summaries, {
+      pagesBeforeFirstZone,
+    });
+    /** INDEX is not counted in printed page numbers (page 1 = first Final Summary sheet). */
+    const indexSheetDisplayOffset = summaries.length > 1 ? 1 : 0;
     return summaries.map((z, i) => {
       const dom = domPageRanges?.get(z.zoneId);
+      const rawFrom = dom?.pageFrom ?? fallback[i]?.pageFrom ?? 1;
+      const rawTo = dom?.pageTo ?? fallback[i]?.pageTo ?? 1;
       return {
         sno: i + 1,
         zoneId: z.zoneId,
         zoneNumber: z.zoneNumber,
         zoneName: z.zoneName,
-        pageFrom: dom?.pageFrom ?? fallback[i]?.pageFrom ?? 1,
-        pageTo: dom?.pageTo ?? fallback[i]?.pageTo ?? 1,
+        pageFrom: Math.max(1, rawFrom - indexSheetDisplayOffset),
+        pageTo: Math.max(1, rawTo - indexSheetDisplayOffset),
       };
     });
-  }, [reportData, domPageRanges]);
+  }, [reportData, domPageRanges, allZoneMasterRows.length]);
 
   if (!reportData || reportData.zoneSummaries.length === 0) {
     return (
@@ -677,7 +729,6 @@ export function ZoneSummaryPdfView({ reportData }: Props) {
                 <col />
                 <col style={{ width: "64px" }} />
                 <col style={{ width: "64px" }} />
-                <col style={{ width: "16%" }} />
               </colgroup>
               <thead>
                 <tr>
@@ -704,9 +755,6 @@ export function ZoneSummaryPdfView({ reportData }: Props) {
                     style={indexHeaderStyle("center")}
                   >
                     Page No
-                  </th>
-                  <th rowSpan={2} scope="col" style={indexHeaderStyle("left")}>
-                    Remarks
                   </th>
                 </tr>
                 <tr>
@@ -750,7 +798,6 @@ export function ZoneSummaryPdfView({ reportData }: Props) {
                     >
                       {z.pageTo}
                     </td>
-                    <td style={indexCellStyle("left")} />
                   </tr>
                 ))}
               </tbody>
@@ -824,7 +871,18 @@ export function ZoneSummaryPdfView({ reportData }: Props) {
                 </tbody>
               </table>
             </div>
-            {/* End of front matter: reset zone-only margin counter before first zone table */}
+
+            {allZoneMasterRows.length > 0 && (
+              <div className="zone-master-page">
+                <div className="zone-master-title">Details of All Zones Properties</div>
+                <MasterPropertyDataTable
+                  rows={allZoneMasterRows}
+                  rowKeyPrefix="zone-master"
+                  variant="zoneMaster"
+                />
+              </div>
+            )}
+
             <div
               className="lp-report-zone-numbering-start"
               aria-hidden
@@ -833,8 +891,14 @@ export function ZoneSummaryPdfView({ reportData }: Props) {
           </div>
         )}
 
-        {/* ZONE DATA AND SUMMARY PAGES (page numbering starts here) */}
-        <div className="zone-pages-start">
+        {/* ZONE DATA AND SUMMARY PAGES (dept-wide: numbering already started on Final Summary) */}
+        <div
+          className={
+            isSpecificZone
+              ? "zone-pages-start zone-pages-start--sheet-one"
+              : "zone-pages-start"
+          }
+        >
           {zoneSummaries.map((zone) => (
             <ZonePdfSection key={zone.zoneId} zone={zone} />
           ))}
@@ -850,19 +914,23 @@ type MergedRowInfo = {
   rowSpan: number;
 };
 
-function computeMergeInfo(
-  properties: ZoneSummaryWithDetails["allProperties"]
-): Map<number, MergedRowInfo> {
+/** Merge S.No. / Z.No. / zone / sector / branch cells only for consecutive rows in the same group. */
+function masterTableMergeGroupKey(row: PropertyTableRow): string {
+  return `${row.zoneNumber}\u0001${row.branchName}`;
+}
+
+function computeMergeInfo(properties: PropertyTableRow[]): Map<number, MergedRowInfo> {
   const mergeMap = new Map<number, MergedRowInfo>();
-  
+
   if (properties.length === 0) return mergeMap;
 
   let groupStart = 0;
-  let currentBranch = properties[0].branchName;
+  let currentKey = masterTableMergeGroupKey(properties[0]);
 
   for (let i = 1; i <= properties.length; i++) {
     const isEnd = i === properties.length;
-    const branchChanged = !isEnd && properties[i].branchName !== currentBranch;
+    const branchChanged =
+      !isEnd && masterTableMergeGroupKey(properties[i]) !== currentKey;
 
     if (isEnd || branchChanged) {
       const groupSize = i - groupStart;
@@ -875,7 +943,7 @@ function computeMergeInfo(
       }
       if (!isEnd) {
         groupStart = i;
-        currentBranch = properties[i].branchName;
+        currentKey = masterTableMergeGroupKey(properties[i]);
       }
     }
   }
@@ -883,8 +951,110 @@ function computeMergeInfo(
   return mergeMap;
 }
 
+function MasterPropertyDataTable({
+  rows,
+  rowKeyPrefix,
+  variant = "full",
+}: {
+  rows: PropertyTableRow[];
+  rowKeyPrefix: string;
+  variant?: "full" | "zoneMaster";
+}) {
+  const mergeInfo = computeMergeInfo(rows);
+  const isZoneMaster = variant === "zoneMaster";
+
+  return (
+    <table className="data-table">
+      <thead>
+        <tr>
+          <th className="sno">S.No.</th>
+          <th className="zno">Z.No.</th>
+          <th>Zone Name</th>
+          {!isZoneMaster && <th>Sector No.</th>}
+          <th>Branch Name</th>
+          {!isZoneMaster && <th>Property Details</th>}
+          <th>Dimenssions of Plot Held (Area)</th>
+          {!isZoneMaster && (
+            <th>Bhawan Constructed or Not / Under Construction</th>
+          )}
+          {!isZoneMaster && <th>Located at (Place)</th>}
+          <th>Utilization of Plots (Bhawan / Building / Shed / Vacant)</th>
+          {!isZoneMaster && <th>Remarks</th>}
+        </tr>
+      </thead>
+      <tbody>
+        {rows.map((row, idx) => {
+          const info = mergeInfo.get(idx);
+          const isFirst = info?.isFirstOfGroup ?? true;
+          const rowSpan = info?.rowSpan ?? 1;
+          const zc = zoneDataCellClass(row.rowHighlight);
+
+          return (
+            <tr key={`${rowKeyPrefix}-${idx}`}>
+              {isFirst && (
+                <>
+                  <td
+                    className={["sno", zc].filter(Boolean).join(" ")}
+                    rowSpan={rowSpan}
+                    style={{ verticalAlign: "middle" }}
+                  >
+                    {row.sno}
+                  </td>
+                  <td
+                    className={["zno", zc].filter(Boolean).join(" ")}
+                    rowSpan={rowSpan}
+                    style={{ verticalAlign: "middle" }}
+                  >
+                    {row.zoneNumber}
+                  </td>
+                  <td
+                    className={zc}
+                    rowSpan={rowSpan}
+                    style={{ verticalAlign: "middle" }}
+                  >
+                    {row.zoneName}
+                  </td>
+                  {!isZoneMaster && (
+                    <td
+                      className={zc}
+                      rowSpan={rowSpan}
+                      style={{ verticalAlign: "middle", textAlign: "center" }}
+                    >
+                      {row.sectorNumber || "NA"}
+                    </td>
+                  )}
+                  <td
+                    className={zc}
+                    rowSpan={rowSpan}
+                    style={{ verticalAlign: "middle" }}
+                  >
+                    {row.branchName}
+                  </td>
+                </>
+              )}
+              {!isZoneMaster && <td className={zc}>{row.propertyName}</td>}
+              <td className={zc}>{row.areaHeld}</td>
+              {!isZoneMaster && (
+                <td className={zc} style={{ textAlign: "center" }}>
+                  {row.constructionStatus}
+                </td>
+              )}
+              {!isZoneMaster && <td className={zc}>{row.locatedAt}</td>}
+              <td className={zc}>{row.bhawanType}</td>
+              {!isZoneMaster && (
+                <td className={["remarks", zc].filter(Boolean).join(" ")}>
+                  {remarkHtmlToText(row.remarks)}
+                </td>
+              )}
+            </tr>
+          );
+        })}
+      </tbody>
+    </table>
+  );
+}
+
 function ZonePdfSection({ zone }: { zone: ZoneSummaryWithDetails }) {
-  const mergeInfo = computeMergeInfo(zone.allProperties);
   const hasDataTable = zone.allProperties.length > 0;
 
   return (
@@ -966,9 +1136,9 @@ function ZonePdfSection({ zone }: { zone: ZoneSummaryWithDetails }) {
                   <th className="sno">S.No.</th>
                   <th>Branch Name</th>
                   <th>Property Details</th>
-                  <th>Details of Properties Held (Area)</th>
+                  <th>Dimenssions of Plot Held (Area)</th>
                   <th>Located at (Place)</th>
-                  <th>Type of Bhawan : Building or Shed</th>
+                  <th>Utilization of Plots (Bhawan / Building / Shed / Vacant)</th>
                 </tr>
               </thead>
               <tbody>
@@ -1027,85 +1197,10 @@ function ZonePdfSection({ zone }: { zone: ZoneSummaryWithDetails }) {
           <div className="zone-data-title">
             Zone {zone.zoneNumber} : {zone.zoneName}
           </div>
-          <table className="data-table">
-            <thead>
-              <tr>
-                <th className="sno">S.No.</th>
-                <th className="zno">Z.No.</th>
-                <th>Zone Name</th>
-                <th>Sector No.</th>
-                <th>Branch Name</th>
-                <th>Property Details</th>
-                <th>Details of Properties Held (Area)</th>
-                <th>Bhawan Constructed or Not / Under Construction</th>
-                <th>Located at (Place)</th>
-                <th>Type of Bhawan : Building or Shed</th>
-                <th>Remarks</th>
-              </tr>
-            </thead>
-            <tbody>
-              {zone.allProperties.map((row, idx) => {
-                const info = mergeInfo.get(idx);
-                const isFirst = info?.isFirstOfGroup ?? true;
-                const rowSpan = info?.rowSpan ?? 1;
-                const zc = zoneDataCellClass(row.rowHighlight);
-
-                return (
-                  <tr key={`${zone.zoneId}-${idx}`}>
-                    {isFirst && (
-                      <>
-                        <td
-                          className={["sno", zc].filter(Boolean).join(" ")}
-                          rowSpan={rowSpan}
-                          style={{ verticalAlign: "middle" }}
-                        >
-                          {row.sno}
-                        </td>
-                        <td
-                          className={["zno", zc].filter(Boolean).join(" ")}
-                          rowSpan={rowSpan}
-                          style={{ verticalAlign: "middle" }}
-                        >
-                          {row.zoneNumber}
-                        </td>
-                        <td
-                          className={zc}
-                          rowSpan={rowSpan}
-                          style={{ verticalAlign: "middle" }}
-                        >
-                          {row.zoneName}
-                        </td>
-                        <td
-                          className={zc}
-                          rowSpan={rowSpan}
-                          style={{ verticalAlign: "middle", textAlign: "center" }}
-                        >
-                          {row.sectorNumber || "NA"}
-                        </td>
-                        <td
-                          className={zc}
-                          rowSpan={rowSpan}
-                          style={{ verticalAlign: "middle" }}
-                        >
-                          {row.branchName}
-                        </td>
-                      </>
-                    )}
-                    <td className={zc}>{row.propertyName}</td>
-                    <td className={zc}>{row.areaHeld}</td>
-                    <td className={zc} style={{ textAlign: "center" }}>
-                      {row.constructionStatus}
-                    </td>
-                    <td className={zc}>{row.locatedAt}</td>
-                    <td className={zc}>{row.bhawanType}</td>
-                    <td className={["remarks", zc].filter(Boolean).join(" ")}>
-                      {remarkHtmlToText(row.remarks)}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+          <MasterPropertyDataTable
+            rows={zone.allProperties}
+            rowKeyPrefix={zone.zoneId}
+          />
         </div>
       )}
     </>

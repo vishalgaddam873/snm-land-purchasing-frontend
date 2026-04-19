@@ -293,7 +293,26 @@ export function ReportsPageClient() {
           return Math.max(1, pageCount);
         }
 
-        function measureZoneIndexPageRanges(zonePagesStart, zoneIds) {
+        function measureFrontMatterPageCount(root) {
+          let total = 0;
+          const indexEl = root.querySelector(".index-page");
+          if (indexEl instanceof HTMLElement) {
+            total += Math.max(
+              1,
+              Math.ceil(indexEl.getBoundingClientRect().height / EFFECTIVE_PAGE_HEIGHT_PX),
+            );
+          }
+          const finalEl = root.querySelector(".final-summary-page");
+          if (finalEl instanceof HTMLElement) {
+            total += Math.max(
+              1,
+              Math.ceil(finalEl.getBoundingClientRect().height / EFFECTIVE_PAGE_HEIGHT_PX),
+            );
+          }
+          return total;
+        }
+
+        function measureZoneIndexPageRanges(zonePagesStart, zoneIds, pagesBeforeFirstZone = 0) {
           const zoneSections = new Map();
 
           for (const child of Array.from(zonePagesStart.children)) {
@@ -316,7 +335,7 @@ export function ReportsPageClient() {
           }
 
           const out = new Map();
-          let currentPage = 1;
+          let currentPage = pagesBeforeFirstZone + 1;
 
           for (const zoneId of zoneIds) {
             const sections = zoneSections.get(zoneId);
@@ -352,7 +371,9 @@ export function ReportsPageClient() {
             .filter((zoneId) => typeof zoneId === "string" && zoneId.length > 0);
           if (!zoneIds.length) return;
 
-          const ranges = measureZoneIndexPageRanges(zonePagesStart, zoneIds);
+          const front = measureFrontMatterPageCount(root);
+          const ranges = measureZoneIndexPageRanges(zonePagesStart, zoneIds, front);
+          const indexSheetDisplayOffset = root.querySelector(".index-page") ? 1 : 0;
           rows.forEach((row) => {
             const zoneId = row.dataset.lpIndexZoneId;
             if (!zoneId) return;
@@ -361,8 +382,14 @@ export function ReportsPageClient() {
 
             const fromCell = row.querySelector("[data-lp-page-from]");
             const toCell = row.querySelector("[data-lp-page-to]");
-            if (fromCell) fromCell.textContent = String(range.pageFrom);
-            if (toCell) toCell.textContent = String(range.pageTo);
+            if (fromCell)
+              fromCell.textContent = String(
+                Math.max(1, range.pageFrom - indexSheetDisplayOffset),
+              );
+            if (toCell)
+              toCell.textContent = String(
+                Math.max(1, range.pageTo - indexSheetDisplayOffset),
+              );
           });
         }
 

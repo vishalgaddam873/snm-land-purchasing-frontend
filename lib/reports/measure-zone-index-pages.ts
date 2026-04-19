@@ -29,6 +29,29 @@ export const REPORT_ZONE_PAGE_CONTENT_HEIGHT_PX = PRINTABLE_HEIGHT_MM * PX_PER_M
  */
 const EFFECTIVE_PAGE_HEIGHT_PX = REPORT_ZONE_PAGE_CONTENT_HEIGHT_PX * 1.10;
 
+/**
+ * Sheets consumed by INDEX + Final Summary (incl. utilization + Details of All Zones
+ * Properties) before `.zone-pages-start`. Used to offset INDEX “Page No” for each zone.
+ */
+export function measureFrontMatterPageCount(root: HTMLElement): number {
+  let total = 0;
+  const indexEl = root.querySelector(".index-page");
+  if (indexEl instanceof HTMLElement) {
+    total += Math.max(
+      1,
+      Math.ceil(indexEl.getBoundingClientRect().height / EFFECTIVE_PAGE_HEIGHT_PX),
+    );
+  }
+  const finalEl = root.querySelector(".final-summary-page");
+  if (finalEl instanceof HTMLElement) {
+    total += Math.max(
+      1,
+      Math.ceil(finalEl.getBoundingClientRect().height / EFFECTIVE_PAGE_HEIGHT_PX),
+    );
+  }
+  return total;
+}
+
 type Atom =
   | { kind: "standalone"; height: number }
   | { kind: "tableHead"; tableId: number; height: number }
@@ -193,6 +216,7 @@ function simulatePagesForSection(sectionEl: HTMLElement): number {
 export function measureZoneIndexPageRanges(
   zonePagesStart: HTMLElement,
   zoneIds: string[],
+  pagesBeforeFirstZone = 0,
 ): Map<string, { pageFrom: number; pageTo: number }> | null {
   const zoneSections = new Map<
     string,
@@ -221,7 +245,7 @@ export function measureZoneIndexPageRanges(
   if (zoneSections.size === 0) return null;
 
   const out = new Map<string, { pageFrom: number; pageTo: number }>();
-  let currentPage = 1;
+  let currentPage = pagesBeforeFirstZone + 1;
 
   for (const zoneId of zoneIds) {
     const sections = zoneSections.get(zoneId);

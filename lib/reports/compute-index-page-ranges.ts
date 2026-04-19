@@ -1,16 +1,33 @@
 import type { ZoneSummaryWithDetails } from "@/components/reports/zone-summary-types";
 
 /**
+ * Fallback sheet count for INDEX + Final Summary (incl. consolidated zone table) before the
+ * first zone section, when DOM measurement is not available yet.
+ */
+export function estimatePagesBeforeFirstZone(
+  zoneMasterFilteredRowCount: number,
+): number {
+  const indexSheets = 1;
+  const finalSummaryCoreSheets = 1;
+  const masterSheets =
+    zoneMasterFilteredRowCount > 0
+      ? Math.max(1, Math.ceil(zoneMasterFilteredRowCount / 18))
+      : 0;
+  return indexSheets + finalSummaryCoreSheets + masterSheets;
+}
+
+/**
  * Fallback INDEX page ranges when DOM measurement is not available yet.
  * Prefer `measureZoneIndexPageRanges` from `measure-zone-index-pages.ts`.
  *
- * Calculates page ranges sequentially:
- * Zone 1: { from: 1, to: 3 }
- * Zone 2: { from: 4, to: 7 }
+ * Calculates page ranges sequentially (after optional front matter):
+ * Zone 1: { from: pagesBeforeFirstZone + 1, to: ... }
+ * Zone 2: { from: ..., to: ... }
  * etc.
  */
 export function computeIndexPageRanges(
   zones: ZoneSummaryWithDetails[],
+  options?: { pagesBeforeFirstZone?: number },
 ): { pageFrom: number; pageTo: number }[] {
   /**
    * Estimate rows per page based on content complexity.
@@ -69,7 +86,7 @@ export function computeIndexPageRanges(
 
   // Build page mapping sequentially (each zone: summary block, then master table)
   const out: { pageFrom: number; pageTo: number }[] = [];
-  let currentPage = 1;
+  let currentPage = (options?.pagesBeforeFirstZone ?? 0) + 1;
 
   for (const zone of zones) {
     const pageFrom = currentPage;
