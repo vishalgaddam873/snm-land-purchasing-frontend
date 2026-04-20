@@ -377,6 +377,41 @@ const styles = `
   .utilization-table tr.utilization-row-vacant td {
     background: #fff;
   }
+  .utilization-table .utilization-vacant-label-cell {
+    vertical-align: top;
+  }
+  .utilization-table .utilization-vacant-title {
+    font-weight: normal;
+    margin-bottom: 8px;
+  }
+  .utilization-table .utilization-vacant-sub {
+    padding: 3px 0 3px 1em;
+  }
+  .utilization-table .utilization-vacant-sub + .utilization-vacant-sub {
+    border-top: 1px solid #ccc;
+    padding-top: 6px;
+    margin-top: 3px;
+  }
+  .utilization-table .utilization-dual-values {
+    vertical-align: top;
+    padding: 6px 10px;
+    text-align: left;
+    font-weight: normal;
+  }
+  .utilization-table .utilization-vacant-value-spacer {
+    min-height: 1.55em;
+    margin-bottom: 8px;
+  }
+  .utilization-table .utilization-dual-line {
+    text-align: left;
+    font-weight: normal;
+    padding: 3px 0;
+  }
+  .utilization-table .utilization-dual-line + .utilization-dual-line {
+    border-top: 1px solid #ccc;
+    padding-top: 6px;
+    margin-top: 3px;
+  }
 
   /* ZONE MASTER (all zones, one table) */
   .zone-master-page {
@@ -1037,15 +1072,23 @@ export function ZoneSummaryPdfView({ reportData }: Props) {
                       {overallSummary.propertyUtilization.bhawansUnderConstruction ?? 0}
                     </td>
                   </tr>
-                  <tr>
-                    <td>5. Self Made Sheds</td>
-                    <td className="value-col">
-                      {overallSummary.propertyUtilization.selfMadeSheds ?? 0}
-                    </td>
-                  </tr>
                   <tr className="utilization-row-vacant">
-                    <td>6. Vacant</td>
-                    <td className="value-col">{overallSummary.propertyUtilization.vacant}</td>
+                    <td className="utilization-vacant-label-cell">
+                      <div className="utilization-vacant-title">5. Vacant</div>
+                      <div className="utilization-vacant-sub">
+                        a. Vacant with Self Made Shades
+                      </div>
+                      <div className="utilization-vacant-sub">b. Fully Vacant</div>
+                    </td>
+                    <td className="value-col utilization-dual-values">
+                      <div className="utilization-vacant-value-spacer" aria-hidden />
+                      <div className="utilization-dual-line">
+                        {overallSummary.propertyUtilization.selfMadeSheds ?? 0}
+                      </div>
+                      <div className="utilization-dual-line">
+                        {overallSummary.propertyUtilization.vacant ?? 0}
+                      </div>
+                    </td>
                   </tr>
                 </tbody>
               </table>
