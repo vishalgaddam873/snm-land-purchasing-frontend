@@ -8,7 +8,6 @@ import {
   PropertyTableRow,
   PropertyTableRowHighlight,
   ZoneSummaryWithDetails,
-  bhawanTypeLabel,
   concernedPpFromDepartmentCode,
   vacantPlotStatusLabel,
 } from "./zone-summary-types";
@@ -108,9 +107,7 @@ function SectionBStructureRows({
     <>
       <tr>
         <td className="code-col">B1</td>
-        <td className="label-col">
-          Total No. of Bhawans and Shed (excl. under construction)
-        </td>
+        <td className="label-col">Total No. of Bhawans and Shed</td>
         <td className="value-col">{sectionB.bhawans}</td>
       </tr>
       <tr>
@@ -130,19 +127,19 @@ function SectionBStructureRows({
       </tr>
       <tr>
         <td className="code-col"></td>
-        <td className="label-col sub-label">Fit for construction</td>
+        <td className="label-col sub-label">Fit for Construction</td>
         <td className="value-col">{fit}</td>
       </tr>
       <tr>
         <td className="code-col"></td>
         <td className="label-col sub-label">
-          Fit for construction at later stage
+          Fit for Construction at Later Stage
         </td>
         <td className="value-col">{fitLater}</td>
       </tr>
       <tr>
         <td className="code-col"></td>
-        <td className="label-col sub-label">Not fit for construction</td>
+        <td className="label-col sub-label">Not Fit for Construction</td>
         <td className="value-col">{notFit}</td>
       </tr>
       <tr>
@@ -583,9 +580,8 @@ const styles = `
     text-align: center;
     margin-bottom: 16px;
     padding: 10px 16px;
-    background: linear-gradient(180deg, #e8e8e8 0%, #d0d0d0 100%);
-    border: 1px solid #888;
-    border-radius: 4px;
+    background: #C4D79B;
+    border: 1px solid #666;
   }
 
   /* Detail Tables */
@@ -1189,7 +1185,7 @@ export function ZoneSummaryPdfView({ reportData }: Props) {
                 </tr>
                 <tr className="summary-row-tbr">
                   <td className="code-col">A2</td>
-                  <td className="label-col">No. of Branches to be Registered</td>
+                  <td className="label-col">No. of New Branches Proposed to be Registered</td>
                   <td className="value-col">{overallSummary.sectionA.branchesToBeRegistered}</td>
                 </tr>
                 <tr className="summary-row-adjoining">
@@ -1199,7 +1195,7 @@ export function ZoneSummaryPdfView({ reportData }: Props) {
                 </tr>
                 <tr className="summary-row-additional">
                   <td className="code-col">A4</td>
-                  <td className="label-col">No. of Additional Units (Branches having more than one Land + Bhawan)</td>
+                  <td className="label-col">No. of Additional Units (Branches having more than one Plot + Bhawan)</td>
                   <td className="value-col">{overallSummary.sectionA.additionalUnits}</td>
                 </tr>
                 <tr className="total-row">
@@ -1372,7 +1368,7 @@ function MasterPropertyDataTable({
           {!isZoneMaster && <th>Sector No.</th>}
           <th>Branch Name</th>
           {!isZoneMaster && <th>Property Details</th>}
-          <th>Dimenssions of Plot Held (Area)</th>
+          <th>Dimensions of Plot Held (Area)</th>
           {!isZoneMaster && (
             <th>
               Bhawan Constructed or Not / Under Construction / Not Applicable
@@ -1495,7 +1491,7 @@ function ZonePdfSection({ zone }: { zone: ZoneSummaryWithDetails }) {
             </tr>
             <tr className="summary-row-tbr">
               <td className="code-col">A2</td>
-              <td className="label-col">No. of Branches to be Registered</td>
+              <td className="label-col">No. of New Branches Proposed to be Registered</td>
               <td className="value-col">{zone.sectionA.branchesToBeRegistered}</td>
             </tr>
             <tr className="summary-row-adjoining">
@@ -1505,7 +1501,7 @@ function ZonePdfSection({ zone }: { zone: ZoneSummaryWithDetails }) {
             </tr>
             <tr className="summary-row-additional">
               <td className="code-col">A4</td>
-              <td className="label-col">No. of Additional Units (Branches having more than one Land + Bhawan)</td>
+              <td className="label-col">No. of Additional Units (Branches having more than one Plot + Bhawan)</td>
               <td className="value-col">{zone.sectionA.additionalUnits}</td>
             </tr>
             <tr className="total-row">
@@ -1536,7 +1532,34 @@ function ZonePdfSection({ zone }: { zone: ZoneSummaryWithDetails }) {
                     <td className="sno">{i + 1}</td>
                     <td>{row.branchName}</td>
                     <td>{row.propertyName}</td>
-                    <td>{bhawanTypeLabel(row.bhawanType)}</td>
+                    <td>{row.utilizationLabel}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+
+        {/* Adjoining plots details — same layout as Additional Units */}
+        {zone.sectionA.adjoiningPlots > 0 && zone.adjoiningPlotsDetails.length > 0 && (
+          <div className="detail-section">
+            <div className="detail-title">Details of Adjoining Plots</div>
+            <table className="detail-table detail-body-additional">
+              <thead>
+                <tr>
+                  <th className="sno">S.No.</th>
+                  <th>Branch Name</th>
+                  <th>Details of Adjoining Plots</th>
+                  <th>Type of Property</th>
+                </tr>
+              </thead>
+              <tbody>
+                {zone.adjoiningPlotsDetails.map((row, i) => (
+                  <tr key={i}>
+                    <td className="sno">{i + 1}</td>
+                    <td>{row.branchName}</td>
+                    <td>{row.propertyName}</td>
+                    <td>{row.utilizationLabel}</td>
                   </tr>
                 ))}
               </tbody>
@@ -1554,7 +1577,7 @@ function ZonePdfSection({ zone }: { zone: ZoneSummaryWithDetails }) {
                   <th className="sno">S.No.</th>
                   <th>Branch Name</th>
                   <th>Property Details</th>
-                  <th>Dimenssions of Plot Held (Area)</th>
+                  <th>Dimensions of Plot Held (Area)</th>
                   <th>Located at (Place)</th>
                   <th>
                     Utilization of Plots (Bhawan / Building / Shed / Self made
@@ -1570,7 +1593,7 @@ function ZonePdfSection({ zone }: { zone: ZoneSummaryWithDetails }) {
                     <td>{row.propertyName}</td>
                     <td>{row.areaHeld}</td>
                     <td>{row.locatedAt}</td>
-                    <td>{bhawanTypeLabel(row.bhawanType)}</td>
+                    <td>{row.utilizationLabel}</td>
                   </tr>
                 ))}
               </tbody>

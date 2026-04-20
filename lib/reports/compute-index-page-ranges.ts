@@ -103,6 +103,11 @@ export function computeIndexPageRanges(
       lines += 4 + zone.additionalUnitsDetails.length; // title + header + spacing + rows
     }
 
+    // Adjoining plots details table (same footprint as Additional Units)
+    if (zone.sectionA.adjoiningPlots > 0 && zone.adjoiningPlotsDetails.length > 0) {
+      lines += 4 + zone.adjoiningPlotsDetails.length;
+    }
+
     // Branches to be Registered table
     if (
       zone.sectionA.branchesToBeRegistered > 0 &&

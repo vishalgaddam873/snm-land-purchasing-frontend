@@ -644,7 +644,7 @@ export function DashboardPropertyAnalytics() {
     ];
     if (b4Fit > 0) {
       slices.push({
-        name: "Vacant — Fit for construction (B5)",
+        name: "Vacant — Fit for Construction (B5)",
         value: b4Fit,
         fill: B5_VACANT_GREENS.fit,
         isVacantSubslice: true,
@@ -652,7 +652,7 @@ export function DashboardPropertyAnalytics() {
     }
     if (b4Later > 0) {
       slices.push({
-        name: "Vacant — Fit at later stage (B5)",
+        name: "Vacant — Fit for Construction at Later Stage (B5)",
         value: b4Later,
         fill: B5_VACANT_GREENS.fitLater,
         isVacantSubslice: true,
@@ -660,7 +660,7 @@ export function DashboardPropertyAnalytics() {
     }
     if (b4NotFit > 0) {
       slices.push({
-        name: "Vacant — Not fit for construction (B5)",
+        name: "Vacant — Not Fit for Construction (B5)",
         value: b4NotFit,
         fill: B5_VACANT_GREENS.notFit,
         isVacantSubslice: true,
@@ -952,7 +952,7 @@ export function DashboardPropertyAnalytics() {
                         },
                         {
                           code: "A2",
-                          label: "No. of Branches to be Registered",
+                          label: "No. of New Branches Proposed to be Registered",
                           value: data.sectionA.branchesToBeRegistered,
                         },
                         {
@@ -963,7 +963,7 @@ export function DashboardPropertyAnalytics() {
                         {
                           code: "A4",
                           label:
-                            "No. of Additional Units (Branches having more than one Land + Bhawan)",
+                            "No. of Additional Units (Branches having more than one Plot + Bhawan)",
                           value: data.sectionA.additionalUnits,
                         },
                       ]}
@@ -1206,17 +1206,17 @@ function structureLandTypeTableRows(
   const notFit = data.sectionB.notFitForConstructionPlots;
   const vacantTotal = data.sectionB.vacantPlots;
   const subRows: { label: string; value: number }[] = [
-    { label: "Fit for construction", value: fit },
+    { label: "Fit for Construction", value: fit },
     {
-      label: "Fit for construction at later stage",
+      label: "Fit for Construction at Later Stage",
       value: fitLater,
     },
-    { label: "Not fit for construction", value: notFit },
+    { label: "Not Fit for Construction", value: notFit },
   ];
   return [
     {
       code: "B1",
-      label: "Total No. of Bhawans and Shed (excl. under construction)",
+      label: "Total No. of Bhawans and Shed",
       value: data.sectionB.bhawans,
     },
     {

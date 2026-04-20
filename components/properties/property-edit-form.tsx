@@ -317,12 +317,12 @@ export function PropertyEditForm({
               key={`${property?._id ?? "new"}-vps-${bhawanType}`}
             >
               <option value="">Not set</option>
-              <option value="fit_for_construction">Fit for construction</option>
+              <option value="fit_for_construction">Fit for Construction</option>
               <option value="fit_for_construction_later_stage">
-                Fit for construction at later stage
+                Fit for Construction at Later Stage
               </option>
               <option value="not_fit_for_construction">
-                Not fit for construction
+                Not Fit for Construction
               </option>
             </select>
           </div>

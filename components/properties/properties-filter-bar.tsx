@@ -727,15 +727,15 @@ export function PropertiesFilterBar({
                   options={[
                     {
                       value: "fit_for_construction",
-                      label: "Fit for construction",
+                      label: "Fit for Construction",
                     },
                     {
                       value: "fit_for_construction_later_stage",
-                      label: "Fit for construction at later stage",
+                      label: "Fit for Construction at Later Stage",
                     },
                     {
                       value: "not_fit_for_construction",
-                      label: "Not fit for construction",
+                      label: "Not Fit for Construction",
                     },
                   ]}
                   values={draftFilters.vacantPlotStatuses}

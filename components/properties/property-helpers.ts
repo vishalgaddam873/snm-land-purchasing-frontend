@@ -60,9 +60,9 @@ export function vacantPlotStatusLabel(
   if (!bhawanTypeAllowsVacantPlotStatus(bhawanType)) return "—";
   if (status == null || !String(status).trim()) return "—";
   const m: Record<string, string> = {
-    fit_for_construction: "Fit for construction",
-    fit_for_construction_later_stage: "Fit for construction at later stage",
-    not_fit_for_construction: "Not fit for construction",
+    fit_for_construction: "Fit for Construction",
+    fit_for_construction_later_stage: "Fit for Construction at Later Stage",
+    not_fit_for_construction: "Not Fit for Construction",
   };
   return m[status] ?? status;
 }

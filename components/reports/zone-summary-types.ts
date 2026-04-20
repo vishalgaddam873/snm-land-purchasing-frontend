@@ -25,6 +25,8 @@ export type PropertyDetailRow = {
   areaHeld: string;
   locatedAt: string;
   bhawanType: string;
+  /** Same rules as master table utilization (from API). */
+  utilizationLabel: string;
   remarks: string;
   vacantPlotStatus: string | null;
 };
@@ -58,6 +60,7 @@ export type ZoneSummaryWithDetails = {
   };
   allProperties: PropertyTableRow[];
   additionalUnitsDetails: PropertyDetailRow[];
+  adjoiningPlotsDetails: PropertyDetailRow[];
   branchesToBeRegisteredDetails: PropertyDetailRow[];
   vacantPlotsDetails: PropertyDetailRow[];
   noBhawanNoPlotsDetails: PropertyDetailRow[];
@@ -158,9 +161,9 @@ export function bhawanTypeLabel(v: string): string {
 export function vacantPlotStatusLabel(v: string | null): string {
   if (!v) return "";
   const map: Record<string, string> = {
-    fit_for_construction: "Fit for construction",
-    fit_for_construction_later_stage: "Fit for construction at later stage",
-    not_fit_for_construction: "Not fit for construction",
+    fit_for_construction: "Fit for Construction",
+    fit_for_construction_later_stage: "Fit for Construction at Later Stage",
+    not_fit_for_construction: "Not Fit for Construction",
   };
   return map[v] ?? v;
 }
