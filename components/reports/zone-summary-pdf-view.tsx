@@ -1076,7 +1076,7 @@ export function ZoneSummaryPdfView({ reportData }: Props) {
                     <td className="utilization-vacant-label-cell">
                       <div className="utilization-vacant-title">5. Vacant</div>
                       <div className="utilization-vacant-sub">
-                        a. Vacant with Self Made Shades
+                        a. Vacant with Self Made Sheds
                       </div>
                       <div className="utilization-vacant-sub">b. Fully Vacant</div>
                     </td>
