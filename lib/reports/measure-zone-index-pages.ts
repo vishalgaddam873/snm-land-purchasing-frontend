@@ -14,27 +14,65 @@
  * - actual visual gaps between blocks contribute to consumed page space
  */
 
-/** Printable height (mm) for one A4 landscape sheet after 12mm top+bottom margin */
-const PRINTABLE_HEIGHT_MM = 210 - 24; // 186mm
+/** 1 inch in millimetres (print/PDF). */
+const MM_PER_INCH = 25.4;
+
+/**
+ * Top @page margin (mm): 1 in — binding / flip-up gutter on A4 landscape.
+ * Keep in sync with `@page` margins in `zone-summary-pdf-view.tsx`.
+ */
+export const REPORT_PRINT_TOP_MARGIN_MM = MM_PER_INCH;
+
+/** Bottom @page margin (mm): 1 in. */
+export const REPORT_PRINT_BOTTOM_MARGIN_MM = MM_PER_INCH;
+
+/** Left and right @page margins (mm). */
+export const REPORT_PRINT_SIDE_MARGIN_MM = 12;
+
+/** A4 landscape height (210mm) minus top and bottom @page margins. */
+export const PRINTABLE_HEIGHT_MM =
+  210 - REPORT_PRINT_TOP_MARGIN_MM - REPORT_PRINT_BOTTOM_MARGIN_MM;
 
 /** CSS px per mm at 96dpi */
 const PX_PER_MM = 96 / 25.4; // ~3.78
 
 /** A4 landscape page content height in pixels */
-export const REPORT_ZONE_PAGE_CONTENT_HEIGHT_PX = PRINTABLE_HEIGHT_MM * PX_PER_MM; // ~703px
+export const REPORT_ZONE_PAGE_CONTENT_HEIGHT_PX = PRINTABLE_HEIGHT_MM * PX_PER_MM;
+
+/** Static front cover (`.report-pdf-cover-front`) — one sheet. */
+export const REPORT_COVER_FRONT_PAGE_COUNT = 1;
+
+/**
+ * One intentionally blank sheet after the front cover (before INDEX).
+ * Must match the number of `.report-blank-lead-page` nodes in `ZoneSummaryPdfView`.
+ */
+export const REPORT_LEAD_BLANK_PAGE_COUNT = 1;
 
 /**
  * Chrome fits significantly more content in print than screen measurements suggest.
  * Use 1.10 multiplier to account for tighter line-spacing and font rendering in print.
  */
-const EFFECTIVE_PAGE_HEIGHT_PX = REPORT_ZONE_PAGE_CONTENT_HEIGHT_PX * 1.10;
+const EFFECTIVE_PAGE_HEIGHT_PX = REPORT_ZONE_PAGE_CONTENT_HEIGHT_PX * 1.1;
+
+/** Default multiplier for zone table pagination (INDEX page ranges). */
+export const REPORT_ZONE_SIM_PAGE_HEIGHT_MULT_DEFAULT = 1.1;
 
 /**
- * Sheets consumed by INDEX + Final Summary (incl. utilization + Details of All Zones
- * Properties) before `.zone-pages-start`. Used to offset INDEX “Page No” for each zone.
+ * Looser pagination (smaller effective height → more sheets) for trail-blank parity checks.
+ * When the default sim stops one sheet short of print (e.g. 623 vs 624), pairing with 1.0 avoids a spurious extra blank.
+ */
+export const REPORT_ZONE_SIM_PAGE_HEIGHT_MULT_LOOSE = 1.0;
+
+/**
+ * Sheets consumed by lead blanks + INDEX + Final Summary (incl. zone master table)
+ * before `.zone-pages-start`. Used for INDEX “Page No” zone ranges.
  */
 export function measureFrontMatterPageCount(root: HTMLElement): number {
   let total = 0;
+  if (root.querySelector(".report-pdf-cover-front")) {
+    total += REPORT_COVER_FRONT_PAGE_COUNT;
+  }
+  total += root.querySelectorAll(".report-blank-lead-page").length;
   const indexEl = root.querySelector(".index-page");
   if (indexEl instanceof HTMLElement) {
     total += Math.max(
@@ -52,7 +90,7 @@ export function measureFrontMatterPageCount(root: HTMLElement): number {
   return total;
 }
 
-/** Display page numbers: first sheet of Final Summary (after INDEX) is page 1. */
+/** Display page numbers for INDEX rows: absolute printed sheets (incl. lead blanks). */
 export type IndexFrontMatterDisplayRanges = {
   finalSummaryCore: { pageFrom: number; pageTo: number };
   allZonesProperties: { pageFrom: number; pageTo: number } | null;
@@ -75,9 +113,22 @@ export function measureIndexFrontMatterDisplayRanges(
         )
       : 1;
 
-  let p = 1;
-  const finalSummaryCore = { pageFrom: p, pageTo: p + corePages - 1 };
-  p = finalSummaryCore.pageTo + 1;
+  const coverSheets = root.querySelector(".report-pdf-cover-front")
+    ? REPORT_COVER_FRONT_PAGE_COUNT
+    : 0;
+  const leadSheets = root.querySelectorAll(".report-blank-lead-page").length;
+  const indexEl = root.querySelector(".index-page");
+  const indexSheets =
+    indexEl instanceof HTMLElement
+      ? Math.max(
+          1,
+          Math.ceil(indexEl.getBoundingClientRect().height / EFFECTIVE_PAGE_HEIGHT_PX),
+        )
+      : 0;
+
+  let p = coverSheets + leadSheets + indexSheets;
+  const finalSummaryCore = { pageFrom: p + 1, pageTo: p + corePages };
+  p = finalSummaryCore.pageTo;
 
   let allZonesProperties: { pageFrom: number; pageTo: number } | null = null;
   if (master instanceof HTMLElement) {
@@ -85,7 +136,7 @@ export function measureIndexFrontMatterDisplayRanges(
       1,
       Math.ceil(master.getBoundingClientRect().height / EFFECTIVE_PAGE_HEIGHT_PX),
     );
-    allZonesProperties = { pageFrom: p, pageTo: p + mPages - 1 };
+    allZonesProperties = { pageFrom: p + 1, pageTo: p + mPages };
   }
 
   return { finalSummaryCore, allZonesProperties };
@@ -195,13 +246,16 @@ function collectAtoms(sectionEl: HTMLElement): Atom[] {
   return atoms;
 }
 
-function simulatePagesForSection(sectionEl: HTMLElement): number {
+function simulatePagesForSection(
+  sectionEl: HTMLElement,
+  effectivePageHeightPx: number,
+): number {
   const atoms = collectAtoms(sectionEl);
 
   if (atoms.length === 0) {
     return Math.max(
       1,
-      Math.ceil(sectionEl.getBoundingClientRect().height / EFFECTIVE_PAGE_HEIGHT_PX),
+      Math.ceil(sectionEl.getBoundingClientRect().height / effectivePageHeightPx),
     );
   }
 
@@ -227,7 +281,7 @@ function simulatePagesForSection(sectionEl: HTMLElement): number {
 
     const requiredHeight = atom.height + repeatedHeadHeight;
 
-    if (currentPageUsed > 0 && currentPageUsed + requiredHeight > EFFECTIVE_PAGE_HEIGHT_PX) {
+    if (currentPageUsed > 0 && currentPageUsed + requiredHeight > effectivePageHeightPx) {
       pageCount += 1;
       currentPageUsed = 0;
       tablesOnCurrentPage = new Set<number>();
@@ -252,10 +306,49 @@ function simulatePagesForSection(sectionEl: HTMLElement): number {
   return Math.max(1, pageCount);
 }
 
+export type MeasureZoneIndexPageRangesOptions = {
+  /** Multiplier on {@link REPORT_ZONE_PAGE_CONTENT_HEIGHT_PX}; default {@link REPORT_ZONE_SIM_PAGE_HEIGHT_MULT_DEFAULT}. */
+  pageHeightMultiplier?: number;
+};
+
+function maxPageToFromRanges(
+  ranges: Map<string, { pageFrom: number; pageTo: number }>,
+): number {
+  let maxTo = 0;
+  for (const r of ranges.values()) maxTo = Math.max(maxTo, r.pageTo);
+  return maxTo;
+}
+
+/**
+ * Whether to insert a second trail blank before the back cover (last zone sheet odd).
+ * Runs default (1.1×) and looser (1.0×) pagination sims; if they disagree on odd/even, the looser
+ * result wins so we match print when Chrome uses one more sheet than the tight sim (e.g. footer 624 vs sim 623).
+ */
+export function shouldDoubleTrailBlankBeforeBackCover(
+  zonePagesStart: HTMLElement,
+  zoneIds: string[],
+  pagesBeforeFirstZone: number,
+): boolean | null {
+  const tight = measureZoneIndexPageRanges(zonePagesStart, zoneIds, pagesBeforeFirstZone, {
+    pageHeightMultiplier: REPORT_ZONE_SIM_PAGE_HEIGHT_MULT_DEFAULT,
+  });
+  const loose = measureZoneIndexPageRanges(zonePagesStart, zoneIds, pagesBeforeFirstZone, {
+    pageHeightMultiplier: REPORT_ZONE_SIM_PAGE_HEIGHT_MULT_LOOSE,
+  });
+  if (!tight?.size || !loose?.size) return null;
+  const maxT = maxPageToFromRanges(tight);
+  const maxL = maxPageToFromRanges(loose);
+  const tOdd = maxT % 2 === 1;
+  const lOdd = maxL % 2 === 1;
+  if (tOdd !== lOdd) return lOdd;
+  return tOdd;
+}
+
 export function measureZoneIndexPageRanges(
   zonePagesStart: HTMLElement,
   zoneIds: string[],
   pagesBeforeFirstZone = 0,
+  options?: MeasureZoneIndexPageRangesOptions,
 ): Map<string, { pageFrom: number; pageTo: number }> | null {
   const zoneSections = new Map<
     string,
@@ -283,6 +376,9 @@ export function measureZoneIndexPageRanges(
 
   if (zoneSections.size === 0) return null;
 
+  const mult = options?.pageHeightMultiplier ?? REPORT_ZONE_SIM_PAGE_HEIGHT_MULT_DEFAULT;
+  const effectivePageHeightPx = REPORT_ZONE_PAGE_CONTENT_HEIGHT_PX * mult;
+
   const out = new Map<string, { pageFrom: number; pageTo: number }>();
   let currentPage = pagesBeforeFirstZone + 1;
 
@@ -294,12 +390,12 @@ export function measureZoneIndexPageRanges(
 
     let summaryPages = 1;
     if (sections.summaryPage) {
-      summaryPages = simulatePagesForSection(sections.summaryPage);
+      summaryPages = simulatePagesForSection(sections.summaryPage, effectivePageHeightPx);
     }
 
     let dataPages = 0;
     if (sections.dataPage) {
-      dataPages = simulatePagesForSection(sections.dataPage);
+      dataPages = simulatePagesForSection(sections.dataPage, effectivePageHeightPx);
     }
 
     const totalPages = summaryPages + dataPages;

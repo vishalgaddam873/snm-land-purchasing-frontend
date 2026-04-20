@@ -17,6 +17,7 @@ import {
   FullReportData,
 } from "./zone-summary-types";
 import { ZoneSummaryPdfView } from "./zone-summary-pdf-view";
+import { PRINTABLE_HEIGHT_MM } from "@/lib/reports/measure-zone-index-pages";
 
 /** Sentinel: include all zones for the selected department (no zoneId query param). */
 const ZONE_ALL_VALUE = "__all_zones__";
@@ -139,7 +140,7 @@ export function ReportsPageClient() {
 
     const printPrepScript = String.raw`
       (() => {
-        const REPORT_ZONE_PAGE_CONTENT_HEIGHT_PX = (210 - 24) * (96 / 25.4);
+        const REPORT_ZONE_PAGE_CONTENT_HEIGHT_PX = (${PRINTABLE_HEIGHT_MM}) * (96 / 25.4);
         const EFFECTIVE_PAGE_HEIGHT_PX = REPORT_ZONE_PAGE_CONTENT_HEIGHT_PX * 1.10;
 
         function gapAfter(current, next) {
@@ -295,6 +296,8 @@ export function ReportsPageClient() {
 
         function measureFrontMatterPageCount(root) {
           let total = 0;
+          if (root.querySelector(".report-pdf-cover-front")) total += 1;
+          total += root.querySelectorAll(".report-blank-lead-page").length;
           const indexEl = root.querySelector(".index-page");
           if (indexEl instanceof HTMLElement) {
             total += Math.max(
@@ -322,16 +325,26 @@ export function ReportsPageClient() {
                   Math.ceil(core.getBoundingClientRect().height / EFFECTIVE_PAGE_HEIGHT_PX),
                 )
               : 1;
-          let p = 1;
-          const finalSummaryCore = { pageFrom: p, pageTo: p + corePages - 1 };
-          p = finalSummaryCore.pageTo + 1;
+          const coverSheets = root.querySelector(".report-pdf-cover-front") ? 1 : 0;
+          const leadSheets = root.querySelectorAll(".report-blank-lead-page").length;
+          const indexEl = root.querySelector(".index-page");
+          const indexSheets =
+            indexEl instanceof HTMLElement
+              ? Math.max(
+                  1,
+                  Math.ceil(indexEl.getBoundingClientRect().height / EFFECTIVE_PAGE_HEIGHT_PX),
+                )
+              : 0;
+          let p = coverSheets + leadSheets + indexSheets;
+          const finalSummaryCore = { pageFrom: p + 1, pageTo: p + corePages };
+          p = finalSummaryCore.pageTo;
           let allZonesProperties = null;
           if (master instanceof HTMLElement) {
             const mPages = Math.max(
               1,
               Math.ceil(master.getBoundingClientRect().height / EFFECTIVE_PAGE_HEIGHT_PX),
             );
-            allZonesProperties = { pageFrom: p, pageTo: p + mPages - 1 };
+            allZonesProperties = { pageFrom: p + 1, pageTo: p + mPages };
           }
           return { finalSummaryCore, allZonesProperties };
         }
@@ -419,7 +432,6 @@ export function ReportsPageClient() {
 
           const front = measureFrontMatterPageCount(root);
           const ranges = measureZoneIndexPageRanges(zonePagesStart, zoneIds, front);
-          const indexSheetDisplayOffset = root.querySelector(".index-page") ? 1 : 0;
           rows.forEach((row) => {
             const zoneId = row.dataset.lpIndexZoneId;
             if (!zoneId) return;
@@ -429,13 +441,9 @@ export function ReportsPageClient() {
             const fromCell = row.querySelector("[data-lp-page-from]");
             const toCell = row.querySelector("[data-lp-page-to]");
             if (fromCell)
-              fromCell.textContent = padIndexPageNo(
-                Math.max(1, range.pageFrom - indexSheetDisplayOffset),
-              );
+              fromCell.textContent = padIndexPageNo(Math.max(1, range.pageFrom));
             if (toCell)
-              toCell.textContent = padIndexPageNo(
-                Math.max(1, range.pageTo - indexSheetDisplayOffset),
-              );
+              toCell.textContent = padIndexPageNo(Math.max(1, range.pageTo));
           });
         }
 

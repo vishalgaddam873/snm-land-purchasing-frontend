@@ -1,6 +1,8 @@
 "use client";
 
 import { useLayoutEffect, useMemo, useState, type CSSProperties } from "react";
+import frontPageImg from "@/assets/frontPage.jpeg";
+import lastPageImg from "@/assets/lastPage.jpeg";
 import {
   FullReportData,
   PropertyTableRow,
@@ -19,8 +21,17 @@ import {
   measureFrontMatterPageCount,
   measureIndexFrontMatterDisplayRanges,
   measureZoneIndexPageRanges,
+  REPORT_COVER_FRONT_PAGE_COUNT,
+  REPORT_LEAD_BLANK_PAGE_COUNT,
+  REPORT_PRINT_BOTTOM_MARGIN_MM,
+  REPORT_PRINT_SIDE_MARGIN_MM,
+  REPORT_PRINT_TOP_MARGIN_MM,
+  shouldDoubleTrailBlankBeforeBackCover,
   type IndexFrontMatterDisplayRanges,
 } from "@/lib/reports/measure-zone-index-pages";
+
+/** @page margin shorthand: top, right, bottom, left */
+const REPORT_PAGE_MARGIN_CSS = `${REPORT_PRINT_TOP_MARGIN_MM}mm ${REPORT_PRINT_SIDE_MARGIN_MM}mm ${REPORT_PRINT_BOTTOM_MARGIN_MM}mm ${REPORT_PRINT_SIDE_MARGIN_MM}mm`;
 
 function zoneDataCellClass(
   highlight: PropertyTableRowHighlight | undefined
@@ -149,34 +160,68 @@ function SectionBStructureRows({
 }
 
 const styles = `
-  /* Force A4 landscape printing with margins */
+  /*
+   * A4 landscape: 1 in top & bottom @page margins; 12mm left & right.
+   * Values: REPORT_PRINT_* in lib/reports/measure-zone-index-pages.ts.
+   */
   @page {
     size: A4 landscape;
-    margin: 12mm;
+    margin: ${REPORT_PAGE_MARGIN_CSS};
   }
 
-  /* INDEX only: no header number (numbering starts on Final Summary). */
-  @page noNumber {
+  /* Front/back JPEG covers: full sheet, no @page inset — image stays on one page. */
+  @page coverSheet {
     size: A4 landscape;
-    margin: 12mm;
-    @top-center {
+    margin: 0;
+    counter-increment: lp-zone-sheet 1;
+    @bottom-center {
+      content: counter(lp-zone-sheet);
+      font-family: Arial, 'Helvetica Neue', Helvetica, sans-serif;
+      font-size: 11px;
+      color: #000;
+      display: table-cell;
+      vertical-align: top;
+      text-align: center;
+      line-height: 1;
+      padding-top: 3mm;
+      padding-bottom: 6mm;
+    }
+  }
+
+  /*
+   * Intentionally blank sheets: same counter as body (counts toward total) but no footer digit.
+   */
+  @page blankSheet {
+    size: A4 landscape;
+    margin: ${REPORT_PAGE_MARGIN_CSS};
+    counter-increment: lp-zone-sheet 1;
+    @bottom-center {
       content: "";
     }
   }
 
   /*
-   * Numbered sheets: Final Summary onward. counter-increment runs once per reportPage sheet.
-   * INDEX uses @page noNumber and does not advance lp-zone-sheet.
+   * Footer shows sheet number (INDEX, body, covers, etc.). Blanks use @page blankSheet.
+   * counter-increment runs once per physical sheet.
    */
   @page reportPage {
     size: A4 landscape;
-    margin: 12mm;
+    margin: ${REPORT_PAGE_MARGIN_CSS};
     counter-increment: lp-zone-sheet 1;
-    @top-center {
+    @bottom-center {
       content: counter(lp-zone-sheet);
       font-family: Arial, 'Helvetica Neue', Helvetica, sans-serif;
-      font-size: 10px;
+      font-size: 11px;
       color: #000;
+      /*
+       * table-cell + top: number stays under the rule; padding-top adds space below the line.
+       */
+      display: table-cell;
+      vertical-align: top;
+      text-align: center;
+      line-height: 1;
+      padding-top: 3mm;
+      padding-bottom: 6mm;
     }
   }
 
@@ -185,14 +230,12 @@ const styles = `
     color: #000;
     background: #fff;
     /*
-     * Match print layout exactly: A4 landscape (297mm wide) with 12mm side margins
-     * means content width is 273mm. Using padding instead of max-width reduction
-     * so screen rendering matches print pagination as closely as possible.
+     * Match print @page. Content width 273mm (297 − 12 − 12).
      */
-    padding: 12mm;
+    padding: ${REPORT_PAGE_MARGIN_CSS};
     max-width: 297mm;
     margin: 0 auto;
-    font-size: 11px;
+    font-size: 12px;
     box-sizing: border-box;
   }
   .page-break {
@@ -203,12 +246,45 @@ const styles = `
     page-break-after: auto;
   }
 
+  .report-pdf-cover-front,
+  .report-pdf-cover-back {
+    margin: 0;
+    padding: 0;
+    break-inside: avoid;
+    page-break-inside: avoid;
+    box-sizing: border-box;
+    width: 100%;
+    max-width: 297mm;
+    aspect-ratio: 297 / 210;
+    margin-left: auto;
+    margin-right: auto;
+    overflow: hidden;
+    background: #fff;
+  }
+  .report-cover-full-image {
+    width: 100%;
+    height: 100%;
+    display: block;
+    object-fit: contain;
+    object-position: center;
+    margin: 0;
+    padding: 0;
+    vertical-align: top;
+  }
+
+  /* One intentionally blank sheet before INDEX (full report only). */
+  .report-blank-lead-page {
+    margin: 0;
+    padding: 0;
+    min-height: 1px;
+  }
+
   /* INDEX PAGE */
   .index-page {
     margin-bottom: 40px;
   }
   .index-title {
-    font-size: 22px;
+    font-size: 23px;
     font-weight: bold;
     text-align: center;
     margin-bottom: 24px;
@@ -219,7 +295,7 @@ const styles = `
   .index-table {
     width: 100%;
     border-collapse: collapse;
-    font-size: 12px;
+    font-size: 13px;
   }
   .index-table th,
   .index-table td {
@@ -261,7 +337,7 @@ const styles = `
     margin-bottom: 40px;
   }
   .final-summary-title {
-    font-size: 18px;
+    font-size: 19px;
     font-weight: bold;
     text-align: center;
     margin-bottom: 20px;
@@ -274,7 +350,7 @@ const styles = `
     width: 100%;
     border-collapse: collapse;
     margin-bottom: 24px;
-    font-size: 12px;
+    font-size: 13px;
   }
   .summary-table th,
   .summary-table td {
@@ -297,7 +373,7 @@ const styles = `
   }
   .summary-table .label-col.sub-label {
     padding-left: 28px;
-    font-size: 11px;
+    font-size: 12px;
     font-weight: normal;
     color: #333;
   }
@@ -327,7 +403,7 @@ const styles = `
     page-break-inside: avoid;
   }
   .utilization-title {
-    font-size: 14px;
+    font-size: 15px;
     font-weight: bold;
     text-align: center;
     margin-bottom: 12px;
@@ -339,7 +415,7 @@ const styles = `
   .utilization-table {
     width: 100%;
     border-collapse: collapse;
-    font-size: 12px;
+    font-size: 13px;
     margin-bottom: 24px;
     break-inside: avoid;
     page-break-inside: avoid;
@@ -419,7 +495,7 @@ const styles = `
     margin-bottom: 40px;
   }
   .zone-master-title {
-    font-size: 16px;
+    font-size: 17px;
     font-weight: bold;
     text-align: center;
     margin-bottom: 16px;
@@ -433,7 +509,7 @@ const styles = `
     margin-bottom: 40px;
   }
   .zone-data-title {
-    font-size: 16px;
+    font-size: 17px;
     font-weight: bold;
     text-align: center;
     margin-bottom: 16px;
@@ -444,7 +520,7 @@ const styles = `
   .data-table {
     width: 100%;
     border-collapse: collapse;
-    font-size: 10px;
+    font-size: 11px;
   }
   .data-table th,
   .data-table td {
@@ -473,6 +549,28 @@ const styles = `
   .data-table td[rowspan] {
     border-bottom: 1px solid #555;
   }
+  .data-table td.data-table-rowspan-no-bottom {
+    border-bottom: none !important;
+  }
+
+  /*
+   * One full-width 1px rule under tbody (rowspan + collapse). No filled bar — avoids
+   * a thick “double” edge next to cell borders in print/PDF.
+   */
+  .data-table tbody tr:last-child > td,
+  .data-table tbody tr:last-child > th {
+    border-bottom: none;
+  }
+  .data-table tfoot td.data-table-foot-close {
+    padding: 0;
+    height: 0;
+    line-height: 0;
+    font-size: 0;
+    vertical-align: top;
+    border: none !important;
+    border-top: 1px solid #555 !important;
+    background: transparent !important;
+  }
 
   /* ZONE SUMMARY */
   .zone-summary-page {
@@ -480,7 +578,7 @@ const styles = `
   }
 
   .zone-header {
-    font-size: 16px;
+    font-size: 17px;
     font-weight: bold;
     text-align: center;
     margin-bottom: 16px;
@@ -499,7 +597,7 @@ const styles = `
     page-break-inside: avoid;
   }
   .detail-title {
-    font-size: 13px;
+    font-size: 14px;
     font-weight: bold;
     margin-bottom: 8px;
     padding: 6px 10px;
@@ -513,7 +611,7 @@ const styles = `
   .detail-table {
     width: 100%;
     border-collapse: collapse;
-    font-size: 11px;
+    font-size: 12px;
     /* Prevent table from splitting across pages */
     break-inside: avoid;
     page-break-inside: avoid;
@@ -565,11 +663,41 @@ const styles = `
       page-break-after: auto;
     }
 
-    /* INDEX: unnumbered; reset sheet counter so Final Summary prints as page 1 */
+    .report-pdf-cover-front,
+    .report-pdf-cover-back {
+      page: coverSheet;
+      width: 297mm;
+      height: 210mm;
+      max-width: 297mm;
+      max-height: 210mm;
+      min-height: 210mm;
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
+      page-break-after: always;
+      break-after: page;
+      break-inside: avoid;
+      page-break-inside: avoid;
+    }
+    .report-pdf-cover-front .report-cover-full-image,
+    .report-pdf-cover-back .report-cover-full-image {
+      width: 100%;
+      height: 100%;
+      max-width: 100%;
+      max-height: 100%;
+      object-fit: contain;
+      object-position: center;
+    }
+
+    .report-blank-lead-page,
+    .report-blank-trail-page {
+      page: blankSheet;
+      page-break-after: always;
+      break-after: page;
+    }
+
     .index-page {
-      page: noNumber;
-      counter-reset: lp-zone-sheet 0;
-      counter-set: lp-zone-sheet 0;
+      page: reportPage;
       page-break-after: always;
       break-after: page;
     }
@@ -578,15 +706,15 @@ const styles = `
       page: reportPage;
     }
 
+    /* Master property table always begins on its own sheet after Final Summary / utilization */
+    .lp-report-index-zone-master-block {
+      break-before: page;
+      page-break-before: always;
+    }
+
     .zone-data-page,
     .zone-summary-page {
       page: reportPage;
-    }
-
-    /* Single-zone report: no INDEX/Final Summary — start numbering at first zone block */
-    .zone-pages-start.zone-pages-start--sheet-one {
-      counter-reset: lp-zone-sheet 0;
-      counter-set: lp-zone-sheet 0;
     }
 
     /* Keep detail sections (title + table) together on one page in print */
@@ -601,6 +729,12 @@ const styles = `
     .detail-table {
       break-inside: avoid !important;
       page-break-inside: avoid !important;
+    }
+
+    /* Detail tables: no tfoot hairline — keep last-row bottom visible in print. */
+    .detail-table tbody tr:last-child > td,
+    .detail-table tbody tr:last-child > th {
+      border-bottom: 1px solid #555 !important;
     }
   }
 `;
@@ -624,7 +758,7 @@ type Props = {
 const INDEX_TABLE_STYLE: CSSProperties = {
   width: "100%",
   borderCollapse: "collapse",
-  fontSize: 12,
+  fontSize: 13,
   tableLayout: "fixed",
 };
 
@@ -689,12 +823,19 @@ export function ZoneSummaryPdfView({ reportData }: Props) {
   > | null>(null);
   const [indexFrontMatterMeasured, setIndexFrontMatterMeasured] =
     useState<IndexFrontMatterDisplayRanges | null>(null);
+  /**
+   * Measured need for a second trail blank (see {@link shouldDoubleTrailBlankBeforeBackCover}).
+   */
+  const [doubleTrailBlankMeasured, setDoubleTrailBlankMeasured] = useState<
+    boolean | null
+  >(null);
 
   useLayoutEffect(() => {
     if (!reportData?.zoneSummaries?.length) {
       const clearId = requestAnimationFrame(() => {
         setDomPageRanges(null);
         setIndexFrontMatterMeasured(null);
+        setDoubleTrailBlankMeasured(null);
       });
       return () => cancelAnimationFrame(clearId);
     }
@@ -716,6 +857,7 @@ export function ZoneSummaryPdfView({ reportData }: Props) {
         root instanceof HTMLElement ? measureFrontMatterPageCount(root) : 0;
       const m = measureZoneIndexPageRanges(zps, ids, front);
       setDomPageRanges(m);
+      setDoubleTrailBlankMeasured(shouldDoubleTrailBlankBeforeBackCover(zps, ids, front));
     };
 
     let raf2 = 0;
@@ -777,14 +919,13 @@ export function ZoneSummaryPdfView({ reportData }: Props) {
   const indexWithPages = useMemo(() => {
     const summaries = reportData?.zoneSummaries;
     if (!summaries?.length) return [];
-    const pagesBeforeFirstZone = estimatePagesBeforeFirstZone(
-      allZoneMasterRows.length,
-    );
+    const pagesBeforeFirstZone =
+      summaries.length > 1
+        ? estimatePagesBeforeFirstZone(allZoneMasterRows.length)
+        : REPORT_COVER_FRONT_PAGE_COUNT;
     const fallback = computeIndexPageRanges(summaries, {
       pagesBeforeFirstZone,
     });
-    /** INDEX is not counted in printed page numbers (page 1 = first Final Summary sheet). */
-    const indexSheetDisplayOffset = summaries.length > 1 ? 1 : 0;
     const zoneBaseSno =
       2 + (summaries.length > 1 && allZoneMasterRows.length > 0 ? 1 : 0);
     return summaries.map((z, i) => {
@@ -797,11 +938,20 @@ export function ZoneSummaryPdfView({ reportData }: Props) {
         zoneNumber: z.zoneNumber,
         zoneName: z.zoneName,
         departmentCode: z.departmentCode ?? "",
-        pageFrom: Math.max(1, rawFrom - indexSheetDisplayOffset),
-        pageTo: Math.max(1, rawTo - indexSheetDisplayOffset),
+        pageFrom: Math.max(1, rawFrom),
+        pageTo: Math.max(1, rawTo),
       };
     });
   }, [reportData, domPageRanges, allZoneMasterRows.length]);
+
+  const estimatedLastZoneContentPage = useMemo(
+    () => Math.max(...indexWithPages.map((z) => z.pageTo), 1),
+    [indexWithPages],
+  );
+
+  const doubleTrailBlankBeforeBackCover =
+    doubleTrailBlankMeasured ?? estimatedLastZoneContentPage % 2 === 1;
+  const trailBlankPageCountBeforeBackCover = doubleTrailBlankBeforeBackCover ? 2 : 1;
 
   if (!reportData || reportData.zoneSummaries.length === 0) {
     return (
@@ -829,9 +979,26 @@ export function ZoneSummaryPdfView({ reportData }: Props) {
     <>
       <style>{styles}</style>
       <div className="pdf-container" id="pdf-content">
+        <div className="report-pdf-cover-front page-break">
+          <img
+            src={frontPageImg.src}
+            width={frontPageImg.width}
+            height={frontPageImg.height}
+            alt=""
+            className="report-cover-full-image"
+          />
+        </div>
         {/* INDEX PAGE - Hidden when specific zone selected */}
         {!isSpecificZone && indexFrontDisplay && (
-          <div className="index-page page-break">
+          <>
+            {Array.from({ length: REPORT_LEAD_BLANK_PAGE_COUNT }, (_, i) => (
+              <div
+                key={`report-blank-lead-${i}`}
+                className="report-blank-lead-page page-break"
+                aria-hidden={true}
+              />
+            ))}
+            <div className="index-page page-break">
             <div className="index-title">INDEX</div>
             <table className="index-table" style={INDEX_TABLE_STYLE}>
               <colgroup>
@@ -1004,6 +1171,7 @@ export function ZoneSummaryPdfView({ reportData }: Props) {
               </tbody>
             </table>
           </div>
+          </>
         )}
 
         {/* FINAL SUMMARY PAGE - Hidden when specific zone selected */}
@@ -1116,16 +1284,27 @@ export function ZoneSummaryPdfView({ reportData }: Props) {
         )}
 
         {/* ZONE DATA AND SUMMARY PAGES (dept-wide: numbering already started on Final Summary) */}
-        <div
-          className={
-            isSpecificZone
-              ? "zone-pages-start zone-pages-start--sheet-one"
-              : "zone-pages-start"
-          }
-        >
+        <div className="zone-pages-start">
           {zoneSummaries.map((zone) => (
             <ZonePdfSection key={zone.zoneId} zone={zone} />
           ))}
+        </div>
+
+        {Array.from({ length: trailBlankPageCountBeforeBackCover }, (_, i) => (
+          <div
+            key={`report-blank-trail-${i}`}
+            className="report-blank-trail-page page-break"
+            aria-hidden={true}
+          />
+        ))}
+        <div className="report-pdf-cover-back page-break">
+          <img
+            src={lastPageImg.src}
+            width={lastPageImg.width}
+            height={lastPageImg.height}
+            alt=""
+            className="report-cover-full-image"
+          />
         </div>
       </div>
     </>
@@ -1181,6 +1360,7 @@ function MasterPropertyDataTable({
 }) {
   const mergeInfo = computeMergeInfo(rows);
   const isZoneMaster = variant === "zoneMaster";
+  const dataTableColumnCount = isZoneMaster ? 6 : 11;
 
   return (
     <table className="data-table">
@@ -1212,27 +1392,33 @@ function MasterPropertyDataTable({
           const isFirst = info?.isFirstOfGroup ?? true;
           const rowSpan = info?.rowSpan ?? 1;
           const zc = zoneDataCellClass(row.rowHighlight);
+          const lastRowIndex = rows.length - 1;
+          const rowspanClosesTable =
+            isFirst && idx + rowSpan - 1 === lastRowIndex;
+          const rowspanFootCls = rowspanClosesTable
+            ? "data-table-rowspan-no-bottom"
+            : "";
 
           return (
             <tr key={`${rowKeyPrefix}-${idx}`}>
               {isFirst && (
                 <>
                   <td
-                    className={["sno", zc].filter(Boolean).join(" ")}
+                    className={["sno", zc, rowspanFootCls].filter(Boolean).join(" ")}
                     rowSpan={rowSpan}
                     style={{ verticalAlign: "middle" }}
                   >
                     {row.sno}
                   </td>
                   <td
-                    className={["zno", zc].filter(Boolean).join(" ")}
+                    className={["zno", zc, rowspanFootCls].filter(Boolean).join(" ")}
                     rowSpan={rowSpan}
                     style={{ verticalAlign: "middle" }}
                   >
                     {row.zoneNumber}
                   </td>
                   <td
-                    className={zc}
+                    className={[zc, rowspanFootCls].filter(Boolean).join(" ")}
                     rowSpan={rowSpan}
                     style={{ verticalAlign: "middle" }}
                   >
@@ -1240,7 +1426,7 @@ function MasterPropertyDataTable({
                   </td>
                   {!isZoneMaster && (
                     <td
-                      className={zc}
+                      className={[zc, rowspanFootCls].filter(Boolean).join(" ")}
                       rowSpan={rowSpan}
                       style={{ verticalAlign: "middle", textAlign: "center" }}
                     >
@@ -1248,7 +1434,7 @@ function MasterPropertyDataTable({
                     </td>
                   )}
                   <td
-                    className={zc}
+                    className={[zc, rowspanFootCls].filter(Boolean).join(" ")}
                     rowSpan={rowSpan}
                     style={{ verticalAlign: "middle" }}
                   >
@@ -1274,6 +1460,14 @@ function MasterPropertyDataTable({
           );
         })}
       </tbody>
+      <tfoot>
+        <tr aria-hidden={true}>
+          <td
+            className="data-table-foot-close"
+            colSpan={dataTableColumnCount}
+          />
+        </tr>
+      </tfoot>
     </table>
   );
 }

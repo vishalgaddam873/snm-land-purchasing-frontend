@@ -1,5 +1,9 @@
 import type { ZoneSummaryWithDetails } from "@/components/reports/zone-summary-types";
-import type { IndexFrontMatterDisplayRanges } from "./measure-zone-index-pages";
+import {
+  type IndexFrontMatterDisplayRanges,
+  REPORT_COVER_FRONT_PAGE_COUNT,
+  REPORT_LEAD_BLANK_PAGE_COUNT,
+} from "./measure-zone-index-pages";
 
 /**
  * Fallback sheet count for INDEX + Final Summary (incl. consolidated zone table) before the
@@ -14,21 +18,34 @@ export function estimatePagesBeforeFirstZone(
     zoneMasterFilteredRowCount > 0
       ? Math.max(1, Math.ceil(zoneMasterFilteredRowCount / 18))
       : 0;
-  return indexSheets + finalSummaryCoreSheets + masterSheets;
+  return (
+    REPORT_COVER_FRONT_PAGE_COUNT +
+    REPORT_LEAD_BLANK_PAGE_COUNT +
+    indexSheets +
+    finalSummaryCoreSheets +
+    masterSheets
+  );
 }
 
 /** Fallback INDEX “Overall Summary” rows when DOM measurement is not ready. */
 export function estimateIndexFrontMatterDisplayRanges(
   zoneMasterFilteredRowCount: number,
 ): IndexFrontMatterDisplayRanges {
+  const indexSheets = 1;
+  const afterIndex =
+    REPORT_COVER_FRONT_PAGE_COUNT + REPORT_LEAD_BLANK_PAGE_COUNT + indexSheets;
   const corePages = 2;
-  const finalSummaryCore = { pageFrom: 1, pageTo: corePages };
+  const finalSummaryCore = {
+    pageFrom: afterIndex + 1,
+    pageTo: afterIndex + corePages,
+  };
+  let p = finalSummaryCore.pageTo;
   let allZonesProperties: { pageFrom: number; pageTo: number } | null = null;
   if (zoneMasterFilteredRowCount > 0) {
     const mp = Math.max(1, Math.ceil(zoneMasterFilteredRowCount / 18));
     allZonesProperties = {
-      pageFrom: corePages + 1,
-      pageTo: corePages + mp,
+      pageFrom: p + 1,
+      pageTo: p + mp,
     };
   }
   return { finalSummaryCore, allZonesProperties };
