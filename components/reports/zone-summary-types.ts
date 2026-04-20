@@ -90,8 +90,10 @@ export type DepartmentOverallSummary = {
   propertyUtilization: {
     totalPlots: number;
     bhawans: number;
+    bhawansUnderConstruction: number;
     buildings: number;
     sheds: number;
+    selfMadeSheds: number;
     vacant: number;
   };
 };

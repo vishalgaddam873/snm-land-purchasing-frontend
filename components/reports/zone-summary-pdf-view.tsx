@@ -1024,15 +1024,27 @@ export function ZoneSummaryPdfView({ reportData }: Props) {
                     <td className="value-col">{overallSummary.propertyUtilization.bhawans}</td>
                   </tr>
                   <tr>
-                    <td>2. Buildings</td>
+                    <td>2. Sheds</td>
+                    <td className="value-col">{overallSummary.propertyUtilization.sheds}</td>
+                  </tr>
+                  <tr>
+                    <td>3. Buildings</td>
                     <td className="value-col">{overallSummary.propertyUtilization.buildings}</td>
                   </tr>
                   <tr>
-                    <td>3. Sheds</td>
-                    <td className="value-col">{overallSummary.propertyUtilization.sheds}</td>
+                    <td>4. Under Constructions</td>
+                    <td className="value-col">
+                      {overallSummary.propertyUtilization.bhawansUnderConstruction ?? 0}
+                    </td>
+                  </tr>
+                  <tr>
+                    <td>5. Self Made Sheds</td>
+                    <td className="value-col">
+                      {overallSummary.propertyUtilization.selfMadeSheds ?? 0}
+                    </td>
                   </tr>
                   <tr className="utilization-row-vacant">
-                    <td>4. Vacant</td>
+                    <td>6. Vacant</td>
                     <td className="value-col">{overallSummary.propertyUtilization.vacant}</td>
                   </tr>
                 </tbody>
