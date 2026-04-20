@@ -5,7 +5,7 @@ export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
   const qs = new URLSearchParams();
   for (const [k, v] of searchParams.entries()) {
-    qs.set(k, v);
+    qs.append(k, v);
   }
   const suffix = qs.toString() ? `?${qs.toString()}` : "";
 

@@ -493,7 +493,7 @@ export function PropertiesFilterBar({
               type="search"
               value={search}
               onChange={(e) => onSearchChange(e.target.value)}
-              placeholder="Search properties…"
+              placeholder="Property, branch, zone, sector, department, location…"
               className={cn(
                 "h-full min-w-0 flex-1 rounded-none border-0 bg-transparent pl-11 pr-3 text-[15px] shadow-none ring-0 focus-visible:ring-0 md:text-[15px]",
                 "placeholder:text-muted-foreground/75",
@@ -530,8 +530,9 @@ export function PropertiesFilterBar({
 
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="text-xs text-muted-foreground">
-          Search updates as you type. Open each filter dropdown to choose options
-          (multi-select fields support several at once) — then{" "}
+          Search matches property fields, branch / zone / sector / department names
+          and numbers, area, location, and remarks. Open filter dropdowns
+          (multi-select supported) — then{" "}
           <span className="font-medium text-foreground/90">Save filters</span>{" "}
           to apply.
         </p>
