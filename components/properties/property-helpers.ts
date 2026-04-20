@@ -72,7 +72,7 @@ export function bhawanLabel(v: string): string {
     bhawan: "Bhawan",
     bhawan_under_construction: "Bhawan under construction",
     shed: "Shed",
-    self_made_shed: "Self made shed",
+    self_made_shed: "Self Made Shed",
     building: "Building",
     no_bhavan_no_plot: "No bhavan, no plot",
     vacant_plot: "Vacant plot",

@@ -1376,7 +1376,7 @@ function MasterPropertyDataTable({
           )}
           {!isZoneMaster && <th>Located at (Place)</th>}
           <th>
-            Utilization of Plots (Bhawan / Building / Shed / Self made shed /
+            Utilization of Plots (Bhawan / Building / Shed / Self Made Shed /
             Vacant / Not Applicable)
           </th>
           {!isZoneMaster && <th>Remarks</th>}
@@ -1438,15 +1438,42 @@ function MasterPropertyDataTable({
                   </td>
                 </>
               )}
-              {!isZoneMaster && <td className={zc}>{row.propertyName}</td>}
-              <td className={zc}>{row.areaHeld}</td>
               {!isZoneMaster && (
-                <td className={zc} style={{ textAlign: "center" }}>
+                <td
+                  className={zc}
+                  style={{ textAlign: "left", verticalAlign: "middle" }}
+                >
+                  {row.propertyName}
+                </td>
+              )}
+              <td
+                className={zc}
+                style={{ textAlign: "left", verticalAlign: "middle" }}
+              >
+                {row.areaHeld}
+              </td>
+              {!isZoneMaster && (
+                <td
+                  className={zc}
+                  style={{ textAlign: "center", verticalAlign: "middle" }}
+                >
                   {row.constructionStatus}
                 </td>
               )}
-              {!isZoneMaster && <td className={zc}>{row.locatedAt}</td>}
-              <td className={zc}>{row.bhawanType}</td>
+              {!isZoneMaster && (
+                <td
+                  className={zc}
+                  style={{ textAlign: "left", verticalAlign: "middle" }}
+                >
+                  {row.locatedAt}
+                </td>
+              )}
+              <td
+                className={zc}
+                style={{ textAlign: "center", verticalAlign: "middle" }}
+              >
+                {row.bhawanType}
+              </td>
               {!isZoneMaster && (
                 <td className={["remarks", zc].filter(Boolean).join(" ")}>
                   {remarkHtmlToText(row.remarks)}
@@ -1580,8 +1607,8 @@ function ZonePdfSection({ zone }: { zone: ZoneSummaryWithDetails }) {
                   <th>Dimensions of Plot Held (Area)</th>
                   <th>Located at (Place)</th>
                   <th>
-                    Utilization of Plots (Bhawan / Building / Shed / Self made
-                    shed / Vacant / Not Applicable)
+                    Utilization of Plots (Bhawan / Building / Shed / Self Made
+                    Shed / Vacant / Not Applicable)
                   </th>
                 </tr>
               </thead>

@@ -50,7 +50,7 @@ export type PropertyListFilterValues = {
   registrationTypes: string[];
   constructionStatuses: string[];
   bhawanTypes: string[];
-  /** Vacant plot / self made shed status (API `vacantPlotStatus`). */
+  /** Vacant plot / Self Made Shed status (API `vacantPlotStatus`). */
   vacantPlotStatuses: string[];
 };
 
@@ -719,7 +719,7 @@ export function PropertiesFilterBar({
               <FilterField
                 label="Vacant plot status"
                 htmlFor="dlg-filter-vps"
-                hint="Matches stored status on vacant plot and self made shed rows."
+                hint="Matches stored status on vacant plot and Self Made Shed rows."
               >
                 <EnumMultiSelectDropdown
                   id="dlg-filter-vps"

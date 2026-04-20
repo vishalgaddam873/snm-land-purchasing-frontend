@@ -297,7 +297,7 @@ export function PropertyEditForm({
               Bhawan under construction
             </option>
             <option value="shed">Shed</option>
-            <option value="self_made_shed">Self made shed</option>
+            <option value="self_made_shed">Self Made Shed</option>
             <option value="building">Building</option>
             <option value="no_bhavan_no_plot">No bhavan, no plot</option>
             <option value="vacant_plot">Vacant plot</option>

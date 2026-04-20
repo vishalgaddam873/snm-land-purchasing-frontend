@@ -880,7 +880,7 @@ export function DashboardPropertyAnalytics() {
                 <KpiCard
                   title="Not fit plots"
                   value={data.sectionB.notFitForConstructionPlots}
-                  hint="Vacant plots & self made sheds (with status) marked not fit"
+                  hint="Vacant plots & Self Made Sheds (with status) marked not fit"
                   icon={FileWarning}
                   accent="from-rose-500/20 to-transparent"
                 />
@@ -1094,7 +1094,7 @@ export function DashboardPropertyAnalytics() {
                 adjoining and additional rows are separate units. B1 is completed
                 bhawan plus shed; B3 is bhawan under construction only. B2 counts
                 bhawan type “building” only (self-made shed and NA are not in B1–B3).
-                B4 is no bhawan / no plot. B5 lists vacant plots plus self made sheds
+                B4 is no bhawan / no plot. B5 lists vacant plots plus Self Made Sheds
                 that have a vacant plot status; indented rows are fit vs not fit for
                 construction. The bottom total is B1,B2,B3, B4 & B5 (no overlap).
               </p>
