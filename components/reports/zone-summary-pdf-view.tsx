@@ -1565,6 +1565,7 @@ function ZonePdfSection({ zone }: { zone: ZoneSummaryWithDetails }) {
                   <th className="sno">S.No.</th>
                   <th>Branch Name</th>
                   <th>Details of Extra Units</th>
+                  <th>Located at (Place)</th>
                   <th>Type of Property</th>
                 </tr>
               </thead>
@@ -1574,6 +1575,7 @@ function ZonePdfSection({ zone }: { zone: ZoneSummaryWithDetails }) {
                     <td className="sno">{i + 1}</td>
                     <td>{row.branchName}</td>
                     <td>{row.propertyName}</td>
+                    <td>{row.locatedAt}</td>
                     <td>{row.utilizationLabel}</td>
                   </tr>
                 ))}
@@ -1592,6 +1594,7 @@ function ZonePdfSection({ zone }: { zone: ZoneSummaryWithDetails }) {
                   <th className="sno">S.No.</th>
                   <th>Branch Name</th>
                   <th>Details of Adjoining Plots</th>
+                  <th>Located at (Place)</th>
                   <th>Type of Property</th>
                 </tr>
               </thead>
@@ -1601,6 +1604,7 @@ function ZonePdfSection({ zone }: { zone: ZoneSummaryWithDetails }) {
                     <td className="sno">{i + 1}</td>
                     <td>{row.branchName}</td>
                     <td>{row.propertyName}</td>
+                    <td>{row.locatedAt}</td>
                     <td>{row.utilizationLabel}</td>
                   </tr>
                 ))}
@@ -1653,6 +1657,7 @@ function ZonePdfSection({ zone }: { zone: ZoneSummaryWithDetails }) {
                   <th className="sno">S.No.</th>
                   <th>Branch Name</th>
                   <th>Details of Vacant Plots</th>
+                  <th>Located at (Place)</th>
                   <th>Remarks</th>
                 </tr>
               </thead>
@@ -1662,6 +1667,7 @@ function ZonePdfSection({ zone }: { zone: ZoneSummaryWithDetails }) {
                     <td className="sno">{i + 1}</td>
                     <td>{row.branchName}</td>
                     <td>{row.areaHeld}</td>
+                    <td>{row.locatedAt}</td>
                     <td className="remarks">
                       {vacantPlotStatusLabel(row.vacantPlotStatus) || "—"}
                     </td>
