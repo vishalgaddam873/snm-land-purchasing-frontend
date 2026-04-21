@@ -713,6 +713,12 @@ const styles = `
       page: reportPage;
     }
 
+    /* Keep each master property row on one sheet (avoid Remarks / cells splitting mid-row). */
+    .data-table tbody tr {
+      break-inside: avoid !important;
+      page-break-inside: avoid !important;
+    }
+
     /* Keep detail sections (title + table) together on one page in print */
     .detail-section {
       break-inside: avoid !important;
