@@ -1376,8 +1376,17 @@ function MasterPropertyDataTable({
           )}
           {!isZoneMaster && <th>Located at (Place)</th>}
           <th>
-            Utilization of Plots (Bhawan / Building / Shed / Self Made Shed /
-            Vacant / Not Applicable)
+            {isZoneMaster ? (
+              <>
+                Utilization of Plots (Bhawan / Building / Shed / Self Made Shed /
+                Vacant)
+              </>
+            ) : (
+              <>
+                Utilization of Plots (Bhawan / Building / Shed / Self Made Shed /
+                Vacant / Not Applicable)
+              </>
+            )}
           </th>
           {!isZoneMaster && <th>Remarks</th>}
         </tr>
