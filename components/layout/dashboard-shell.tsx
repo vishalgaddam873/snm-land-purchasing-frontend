@@ -18,12 +18,17 @@ import {
   SheetTrigger,
 } from "@/components/ui/sheet";
 import { mainNav } from "@/lib/nav";
+import type { AppModuleId } from "@/lib/auth/module-access";
+import { moduleAllowsView } from "@/lib/auth/module-access";
 import { cn } from "@/lib/utils";
 import { ChevronDown, Layers, LogOut, Menu, Shield, User } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import * as React from "react";
 import { MissionLogo } from "./mission-logo";
+import { PageWatermark } from "@/components/layout/page-watermark";
+import { ModuleAccessProvider } from "@/components/auth/module-access-context";
+import { ScreenShield } from "@/components/security/screen-shield";
 
 function roleDisplayLabel(role?: "superadmin" | "admin" | "moderator") {
   if (role === "superadmin") return "Super Admin";
@@ -51,52 +56,81 @@ function isNavActive(pathname: string, href: string) {
   return pathname === href || pathname.startsWith(`${href}/`);
 }
 
+function navModuleVisible(
+  me: {
+    role?: "superadmin" | "admin" | "moderator";
+    moduleAccess?: Record<string, string>;
+  } | null,
+  meLoading: boolean,
+  moduleId?: AppModuleId,
+): boolean {
+  if (!moduleId) return true;
+  if (meLoading || !me) return false;
+  return moduleAllowsView(me, moduleId);
+}
+
 function SidebarNav({
   onNavigate,
-  role,
+  me,
+  meLoading,
 }: {
   onNavigate?: () => void;
-  role?: "superadmin" | "admin" | "moderator";
+  me: {
+    role?: "superadmin" | "admin" | "moderator";
+    moduleAccess?: Record<string, string>;
+  } | null;
+  meLoading: boolean;
 }) {
   const pathname = usePathname();
   const adminItems =
-    role === "superadmin"
+    me?.role === "superadmin"
       ? [
           {
             label: "Users",
             href: "/admin/users",
             icon: Shield,
+            moduleId: "users" as const,
           },
           {
             label: "Departments",
             href: "/departments",
             icon: Layers,
+            moduleId: "departments" as const,
           },
-        ]
+        ].filter((item) => navModuleVisible(me, meLoading, item.moduleId))
       : [];
+
+  const visibleMainNav = mainNav.filter((item) =>
+    navModuleVisible(me, meLoading, item.moduleId),
+  );
 
   return (
     <nav className="flex flex-col gap-0.5 p-3">
-      {mainNav.map((item) => {
-        const active = isNavActive(pathname, item.href);
-        const Icon = item.icon;
-        return (
-          <Link
-            key={item.href}
-            href={item.href}
-            onClick={onNavigate}
-            className={cn(
-              "flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors",
-              active
-                ? "bg-sidebar-accent text-sidebar-accent-foreground"
-                : "text-sidebar-foreground/80 hover:bg-sidebar-accent/60 hover:text-sidebar-foreground",
-            )}
-          >
-            <Icon className="size-4 shrink-0 opacity-80" aria-hidden />
-            {item.label}
-          </Link>
-        );
-      })}
+      {meLoading ? (
+        <p className="px-3 py-2 text-xs text-muted-foreground">Loading menu…</p>
+      ) : null}
+      {!meLoading
+        ? visibleMainNav.map((item) => {
+            const active = isNavActive(pathname, item.href);
+            const Icon = item.icon;
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                onClick={onNavigate}
+                className={cn(
+                  "flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors",
+                  active
+                    ? "bg-sidebar-accent text-sidebar-accent-foreground"
+                    : "text-sidebar-foreground/80 hover:bg-sidebar-accent/60 hover:text-sidebar-foreground",
+                )}
+              >
+                <Icon className="size-4 shrink-0 opacity-80" aria-hidden />
+                {item.label}
+              </Link>
+            );
+          })
+        : null}
 
       {adminItems.length ? (
         <div className="mt-3 pt-3 border-t border-sidebar-border/80">
@@ -137,6 +171,8 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
     name?: string;
     email?: string;
     role?: "superadmin" | "admin" | "moderator";
+    moduleAccess?: Record<string, string>;
+    departmentWatermark?: string;
   } | null>(null);
   const [meLoading, setMeLoading] = React.useState(true);
 
@@ -165,6 +201,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="flex min-h-screen bg-background">
+      <ScreenShield />
       <aside className="sticky top-0 hidden h-screen w-60 shrink-0 border-r border-sidebar-border bg-sidebar lg:flex lg:flex-col">
         <div className="flex h-16 items-center gap-3 border-b border-sidebar-border px-4">
           <MissionLogo size="sm" />
@@ -178,7 +215,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
           </div>
         </div>
         <ScrollArea className="flex-1">
-          <SidebarNav role={me?.role} />
+          <SidebarNav me={me} meLoading={meLoading} />
         </ScrollArea>
         <div className="border-t border-sidebar-border p-3">
           <p className="px-3 text-xs leading-relaxed text-muted-foreground">
@@ -211,7 +248,8 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
               </SheetHeader>
               <ScrollArea className="h-[calc(100vh-5rem)]">
                 <SidebarNav
-                  role={me?.role}
+                  me={me}
+                  meLoading={meLoading}
                   onNavigate={() => setOpen(false)}
                 />
               </ScrollArea>
@@ -311,8 +349,15 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
           </div>
         </header>
 
-        <main className="flex-1 px-4 py-6 sm:px-6 lg:px-8">
-          <div className="mx-auto w-full max-w-6xl space-y-8">{children}</div>
+        <main className="relative flex-1 px-4 py-6 sm:px-6 lg:px-8">
+          {!meLoading && me?.departmentWatermark ? (
+            <PageWatermark text={me.departmentWatermark} />
+          ) : null}
+          <ModuleAccessProvider user={me} ready={!meLoading && Boolean(me)}>
+            <div className="relative z-10 mx-auto w-full max-w-6xl space-y-8">
+              {children}
+            </div>
+          </ModuleAccessProvider>
         </main>
       </div>
     </div>

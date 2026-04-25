@@ -1,20 +1,19 @@
 import type { Metadata } from "next";
 import { notFound, redirect } from "next/navigation";
-import { PropertyEditPageClient } from "./property-edit-page-client";
 import { ApiOfflineNotice } from "@/components/layout/api-offline-notice";
 import { PageHeader } from "@/components/layout/page-header";
-import type { PropertyRow } from "@/components/properties/property-helpers";
+import type { AdminUserEditable } from "@/components/users/user-form-page-client";
+import { UserFormPageClient } from "@/components/users/user-form-page-client";
 import { backendFetch } from "@/lib/api/backend";
 import { getServerSessionUser } from "@/lib/auth/server-session";
-import { moduleAllowsEdit } from "@/lib/auth/module-access";
 
 export const metadata: Metadata = {
-  title: "Edit property",
+  title: "Edit user",
 };
 
 type PageProps = { params: Promise<{ id: string }> };
 
-export default async function PropertyEditPage({ params }: PageProps) {
+export default async function AdminUserEditPage({ params }: PageProps) {
   const { id } = await params;
 
   const session = await getServerSessionUser();
@@ -27,40 +26,39 @@ export default async function PropertyEditPage({ params }: PageProps) {
       />
     );
   }
-  if (!session.user) redirect("/login");
-  if (!moduleAllowsEdit(session.user, "properties")) {
-    redirect(`/properties/${id}`);
-  }
 
-  const res = await backendFetch(`/properties/${id}`);
-  if (res.status === 404) {
-    notFound();
-  }
+  const me = session.user;
+  if (!me) redirect("/login");
+  if (me?.role !== "superadmin") redirect("/dashboard");
+
+  const res = await backendFetch(`/users/${id}`);
+  if (res.status === 404) notFound();
   if (!res.ok) {
     return (
       <div className="rounded-xl border border-destructive/25 bg-destructive/10 px-4 py-3 text-sm text-destructive">
-        Could not load this property for editing.
+        Could not load this user for editing.
       </div>
     );
   }
 
-  const property = (await res.json()) as PropertyRow;
+  const user = (await res.json()) as AdminUserEditable;
 
   const crumbs = [
     { href: "/dashboard", label: "Home" },
-    { href: "/properties", label: "Properties" },
-    { label: property.propertyName || "Property" },
+    { href: "/admin/users", label: "User management" },
+    { label: user.username || user.email || "User" },
     { label: "Edit" },
   ];
 
   return (
     <div className="space-y-8">
       <PageHeader
-        title="Edit property"
-        description="Update register fields, branch link, and verification status."
+        title="Edit user"
+        description="Update role, status, department scope, and module permissions."
         crumbs={crumbs}
       />
-      <PropertyEditPageClient property={property} />
+      <UserFormPageClient mode="edit" user={user} />
     </div>
   );
 }
+

@@ -381,8 +381,8 @@ export function PropertiesFilterBar({
     void (async () => {
       try {
         const res = await fetch(
-          `/api/sectors/for-select?zoneId=${encodeURIComponent(draftFilters.zoneId)}`,
-          { cache: "no-store" },
+          `/api/properties/sectors-for-select?zoneId=${encodeURIComponent(draftFilters.zoneId)}`,
+          { cache: "no-store", credentials: "same-origin" },
         );
         const data = await res.json().catch(() => []);
         if (cancelled) return;

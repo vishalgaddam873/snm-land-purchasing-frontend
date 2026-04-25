@@ -1,15 +1,15 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { ApiOfflineNotice } from "@/components/layout/api-offline-notice";
-import { BranchesClient } from "@/components/tables/branches-client";
+import { PageHeader } from "@/components/layout/page-header";
+import { UserFormPageClient } from "@/components/users/user-form-page-client";
 import { getServerSessionUser } from "@/lib/auth/server-session";
-import { moduleAllowsEdit } from "@/lib/auth/module-access";
 
 export const metadata: Metadata = {
-  title: "All Branches",
+  title: "Add user",
 };
 
-export default async function BranchesPage() {
+export default async function AdminUserNewPage() {
   const session = await getServerSessionUser();
   if (!session.ok) {
     return (
@@ -23,24 +23,23 @@ export default async function BranchesPage() {
 
   const me = session.user;
   if (!me) redirect("/login");
-
-  const canManage = moduleAllowsEdit(me, "branches");
+  if (me?.role !== "superadmin") redirect("/dashboard");
 
   const crumbs = [
     { href: "/dashboard", label: "Home" },
-    { label: "Branches" },
+    { href: "/admin/users", label: "User management" },
+    { label: "Add user" },
   ];
 
   return (
-    <BranchesClient
-      canManage={canManage}
-      title="All Branches"
-      description={
-        canManage
-          ? "Create branches and assign each to a zone. Other users can view and filter the list."
-          : "Branches by zone. You have read-only access for this module."
-      }
-      crumbs={crumbs}
-    />
+    <div className="space-y-8">
+      <PageHeader
+        title="Add user"
+        description="Create a new user, set role, department scope, and module permissions."
+        crumbs={crumbs}
+      />
+      <UserFormPageClient mode="create" />
+    </div>
   );
 }
+

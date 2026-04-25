@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { ApiOfflineNotice } from "@/components/layout/api-offline-notice";
 import { ZonesClient } from "@/components/tables/zones-client";
 import { getServerSessionUser } from "@/lib/auth/server-session";
+import { moduleAllowsEdit } from "@/lib/auth/module-access";
 
 export const metadata: Metadata = {
   title: "All Zones",
@@ -23,7 +24,7 @@ export default async function ZonesPage() {
   const me = session.user;
   if (!me) redirect("/login");
 
-  const canManage = me?.role === "superadmin";
+  const canManage = moduleAllowsEdit(me, "zones");
 
   const crumbs = [
     { href: "/dashboard", label: "Home" },
@@ -37,7 +38,7 @@ export default async function ZonesPage() {
       description={
         canManage
           ? "Define zones under publicity departments. Zone numbers are set manually (e.g. 1, 1A). Superadmins can seed or update zones in bulk from Excel (sample download next to search)."
-          : "Zones under publicity departments. Contact a superadmin to add or change zones."
+          : "Zones under publicity departments. You have read-only access for this module."
       }
       crumbs={crumbs}
     />

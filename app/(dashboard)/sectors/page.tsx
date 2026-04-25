@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { ApiOfflineNotice } from "@/components/layout/api-offline-notice";
 import { SectorsClient } from "@/components/tables/sectors-client";
 import { getServerSessionUser } from "@/lib/auth/server-session";
+import { moduleAllowsEdit } from "@/lib/auth/module-access";
 
 export const metadata: Metadata = {
   title: "Sectors",
@@ -23,7 +24,7 @@ export default async function SectorsPage() {
   const me = session.user;
   if (!me) redirect("/login");
 
-  const canManage = me?.role === "superadmin";
+  const canManage = moduleAllowsEdit(me, "sectors");
 
   const crumbs = [
     { href: "/dashboard", label: "Home" },
@@ -37,7 +38,7 @@ export default async function SectorsPage() {
       description={
         canManage
           ? "Define sectors within zones. Branches can optionally be linked to a sector. Superadmins can seed or update sectors in bulk from Excel (sample download next to search)."
-          : "Sectors within zones. Contact a superadmin to add or change sectors."
+          : "Sectors within zones. You have read-only access for this module."
       }
       crumbs={crumbs}
     />

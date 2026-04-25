@@ -187,7 +187,10 @@ export function sortBranchesForSelect(list: BranchOption[]): BranchOption[] {
 }
 
 export async function fetchActiveZonesForSelect(): Promise<ZoneSelectOption[]> {
-  const res = await fetch("/api/zones/active", { cache: "no-store" });
+  const res = await fetch("/api/properties/zones-for-select", {
+    cache: "no-store",
+    credentials: "same-origin",
+  });
   if (!res.ok) return [];
   const data = await res.json().catch(() => []);
   if (!Array.isArray(data)) return [];
@@ -195,7 +198,10 @@ export async function fetchActiveZonesForSelect(): Promise<ZoneSelectOption[]> {
 }
 
 export async function fetchBranchesForSelect(): Promise<BranchOption[]> {
-  const res = await fetch("/api/branches/for-select", { cache: "no-store" });
+  const res = await fetch("/api/properties/branches-for-select", {
+    cache: "no-store",
+    credentials: "same-origin",
+  });
   if (!res.ok) return [];
   const data = await res.json().catch(() => []);
   if (!Array.isArray(data)) return [];
@@ -214,24 +220,17 @@ type DeptListRow = {
 export async function fetchDepartmentsForSelect(): Promise<
   DepartmentSelectOption[]
 > {
-  const qs = new URLSearchParams({
-    page: "1",
-    limit: String(DEPARTMENT_SELECT_PAGE_LIMIT),
-  });
-  const res = await fetch(`/api/publicity-departments?${qs}`, {
+  const res = await fetch(`/api/properties/departments-for-select`, {
     cache: "no-store",
+    credentials: "same-origin",
   });
   const data = await res.json().catch(() => ({}));
-  if (!res.ok || !isPaginatedList<DeptListRow>(data)) {
+  if (!res.ok || !Array.isArray(data)) {
     return [];
   }
-  return data.data
+  return (data as DeptListRow[])
     .filter((d) => d.status !== "deleted")
-    .map((d) => ({
-      _id: d._id,
-      name: d.name,
-      code: d.code,
-    }));
+    .map((d) => ({ _id: d._id, name: d.name, code: d.code }));
 }
 
 export function sortDepartmentsForSelect(

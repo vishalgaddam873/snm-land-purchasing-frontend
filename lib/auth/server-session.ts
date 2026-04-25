@@ -4,6 +4,10 @@ export type ServerSessionUser = {
   role?: string;
   name?: string;
   email?: string;
+  /** Per-module `edit` (default) vs `view` (read-only, no exports/mutations). */
+  moduleAccess?: Record<string, string>;
+  /** Resolved label for UI watermark (department scope or org-wide). */
+  departmentWatermark?: string;
   [key: string]: unknown;
 };
 

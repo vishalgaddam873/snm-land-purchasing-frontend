@@ -295,16 +295,18 @@ export function PropertiesClient({ canManage }: { canManage: boolean }) {
                 onImported={() => void dispatch(fetchPropertiesList())}
               />
             ) : null}
-            <Button
-              type="button"
-              variant="outline"
-              className="h-12 shrink-0 rounded-xl px-4"
-              disabled={exportLoading}
-              onClick={() => void dispatch(exportPropertiesExcel())}
-            >
-              <Download className="mr-2 size-4 shrink-0" />
-              {exportLoading ? "Exporting…" : "Export Excel"}
-            </Button>
+            {canManage ? (
+              <Button
+                type="button"
+                variant="outline"
+                className="h-12 shrink-0 rounded-xl px-4"
+                disabled={exportLoading}
+                onClick={() => void dispatch(exportPropertiesExcel())}
+              >
+                <Download className="mr-2 size-4 shrink-0" />
+                {exportLoading ? "Exporting…" : "Export Excel"}
+              </Button>
+            ) : null}
           </div>
         }
       />

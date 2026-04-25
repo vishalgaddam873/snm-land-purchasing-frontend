@@ -18,6 +18,7 @@ import {
 } from "./zone-summary-types";
 import { ZoneSummaryPdfView } from "./zone-summary-pdf-view";
 import { PRINTABLE_HEIGHT_MM } from "@/lib/reports/measure-zone-index-pages";
+import { useModuleAllowsEdit } from "@/components/auth/module-access-context";
 
 /** Sentinel: include all zones for the selected department (no zoneId query param). */
 const ZONE_ALL_VALUE = "__all_zones__";
@@ -26,6 +27,7 @@ const ZONE_ALL_VALUE = "__all_zones__";
 const DEPARTMENT_ALL_VALUE = "__all_departments__";
 
 export function ReportsPageClient() {
+  const canEditReports = useModuleAllowsEdit("reports");
   const [departments, setDepartments] = useState<DepartmentOption[]>([]);
   const [zones, setZones] = useState<ZoneOption[]>([]);
   /** Empty until the user picks a department (no default). */
@@ -579,21 +581,23 @@ export function ReportsPageClient() {
         </Button>
 
         <div className="ml-auto flex gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handlePrint}
-            disabled={
-              loading ||
-              !selectedDepartment.trim() ||
-              !reportData ||
-              reportData.zoneSummaries.length === 0
-            }
-            className="h-9"
-          >
-            <Printer className="size-4" />
-            <span className="ml-1.5">Print / Save PDF</span>
-          </Button>
+          {canEditReports ? (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handlePrint}
+              disabled={
+                loading ||
+                !selectedDepartment.trim() ||
+                !reportData ||
+                reportData.zoneSummaries.length === 0
+              }
+              className="h-9"
+            >
+              <Printer className="size-4" />
+              <span className="ml-1.5">Print / Save PDF</span>
+            </Button>
+          ) : null}
         </div>
       </div>
 

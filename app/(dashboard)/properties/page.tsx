@@ -6,6 +6,7 @@ import { PageHeader } from "@/components/layout/page-header";
 import { buttonVariants } from "@/components/ui/button";
 import { PropertiesClient } from "@/components/tables/properties-client";
 import { getServerSessionUser } from "@/lib/auth/server-session";
+import { moduleAllowsEdit } from "@/lib/auth/module-access";
 import { cn } from "@/lib/utils";
 import { Plus } from "lucide-react";
 
@@ -28,7 +29,7 @@ export default async function PropertiesPage() {
   const me = session.user;
   if (!me) redirect("/login");
 
-  const canManage = me?.role === "superadmin";
+  const canManage = moduleAllowsEdit(me, "properties");
 
   const crumbs = [
     { href: "/dashboard", label: "Home" },
@@ -42,7 +43,7 @@ export default async function PropertiesPage() {
         description={
           canManage
             ? "Record bhawan and land parcels: area, location, registration and verification status."
-            : "View property records. Contact a superadmin to add or change entries."
+            : "View property records. You have read-only access for this module."
         }
         crumbs={crumbs}
         actionsBesideTitle={canManage}

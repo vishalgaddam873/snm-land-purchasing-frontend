@@ -4,6 +4,7 @@ import { PropertyFormPageClient } from "@/components/properties/property-form-pa
 import { ApiOfflineNotice } from "@/components/layout/api-offline-notice";
 import { PageHeader } from "@/components/layout/page-header";
 import { getServerSessionUser } from "@/lib/auth/server-session";
+import { moduleAllowsEdit } from "@/lib/auth/module-access";
 
 export const metadata: Metadata = {
   title: "Add property",
@@ -21,7 +22,7 @@ export default async function PropertyNewPage() {
     );
   }
   if (!session.user) redirect("/login");
-  if (session.user.role !== "superadmin") {
+  if (!moduleAllowsEdit(session.user, "properties")) {
     redirect("/properties");
   }
 

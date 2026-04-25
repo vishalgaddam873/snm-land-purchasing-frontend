@@ -6,6 +6,7 @@ import { PageHeader } from "@/components/layout/page-header";
 import type { PropertyRow } from "@/components/properties/property-helpers";
 import { backendFetch } from "@/lib/api/backend";
 import { getServerSessionUser } from "@/lib/auth/server-session";
+import { moduleAllowsEdit } from "@/lib/auth/module-access";
 
 type PageProps = { params: Promise<{ id: string }> };
 
@@ -47,7 +48,7 @@ export default async function PropertyDetailPage({ params }: PageProps) {
   }
 
   const property = (await res.json()) as PropertyRow;
-  const canManage = session.user.role === "superadmin";
+  const canManage = moduleAllowsEdit(session.user, "properties");
 
   const crumbs = [
     { href: "/dashboard", label: "Home" },
