@@ -23,11 +23,15 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: {
-    default: "Land Purchasing | Sant Nirankari Mission",
-    template: "%s | Land Purchasing",
+    default: "Properties Details",
+    template: "%s | Properties Details",
   },
   description:
-    "Administration portal for the Nirankari Mission Land Purchasing Department — transparent, calm record management.",
+    "Properties Details",
+  icons: {
+    icon: [{ url: "/logo.png" }],
+    apple: [{ url: "/logo.png" }],
+  },
 };
 
 export default function RootLayout({

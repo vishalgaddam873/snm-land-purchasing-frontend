@@ -38,7 +38,15 @@ export function LoginForm() {
         setError(data?.message ?? "Invalid credentials");
         return;
       }
-      router.push("/dashboard");
+      const moduleAccess = (data?.user?.moduleAccess ?? {}) as Record<
+        string,
+        string
+      >;
+      const role = String(data?.user?.role ?? "");
+      const canSeeDashboard =
+        role === "superadmin" || moduleAccess?.dashboard !== "none";
+
+      router.push(canSeeDashboard ? "/dashboard" : "/properties");
       router.refresh();
     } finally {
       setLoading(false);

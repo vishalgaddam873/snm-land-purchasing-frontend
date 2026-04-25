@@ -207,21 +207,16 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
           <MissionLogo size="sm" />
           <div className="min-w-0">
             <p className="truncate text-xs font-medium text-muted-foreground">
-              Sant Nirankari Mission
+                Properties Details
             </p>
             <p className="truncate text-sm font-semibold text-foreground">
-            Land and Building Maintenance
+            Land and Building Details
             </p>
           </div>
         </div>
         <ScrollArea className="flex-1">
           <SidebarNav me={me} meLoading={meLoading} />
         </ScrollArea>
-        <div className="border-t border-sidebar-border p-3">
-          <p className="px-3 text-xs leading-relaxed text-muted-foreground">
-            Transparency · Care · Service
-          </p>
-        </div>
       </aside>
 
       <div className="flex min-w-0 flex-1 flex-col">
@@ -258,7 +253,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
 
           <div className="hidden min-w-0 flex-1 lg:block">
             <p className="truncate text-sm text-muted-foreground">
-              Nirankari Mission — Land and Building Maintenance
+              Properties Details
             </p>
           </div>
 

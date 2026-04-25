@@ -1,5 +1,5 @@
 import { cn } from "@/lib/utils";
-import { Sparkles } from "lucide-react";
+import Image from "next/image";
 
 export function MissionLogo({
   className,
@@ -14,18 +14,24 @@ export function MissionLogo({
       : size === "sm"
         ? "size-10 rounded-xl"
         : "size-12 rounded-xl";
-  const icon = size === "lg" ? "size-7" : size === "sm" ? "size-5" : "size-6";
 
   return (
     <div
       className={cn(
-        "flex items-center justify-center bg-primary text-primary-foreground shadow-sm ring-1 ring-primary/20",
+        "flex items-center justify-center bg-background shadow-sm ring-1 ring-border",
         box,
         className,
       )}
       aria-hidden
     >
-      <Sparkles className={icon} strokeWidth={1.75} />
+      <Image
+        src="/logo.png"
+        alt=""
+        width={64}
+        height={64}
+        className="size-[70%] object-contain"
+        priority={size === "lg"}
+      />
     </div>
   );
 }
