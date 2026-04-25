@@ -229,19 +229,23 @@ export function PropertiesClient({ canManage }: { canManage: boolean }) {
         flex: 1,
         minWidth: 160,
       },
-      {
-        field: "verificationDisplay",
-        headerName: "Verification",
-        width: 118,
-      },
-      {
-        field: "verifiedByDisplay",
-        headerName: "Verified by",
-        minWidth: 110,
-        flex: 0.45,
-      },
-      { field: "statusDisplay", headerName: "Status", width: 92 },
     );
+    if (canManage) {
+      cols.push(
+        {
+          field: "verificationDisplay",
+          headerName: "Verification",
+          width: 118,
+        },
+        {
+          field: "verifiedByDisplay",
+          headerName: "Verified by",
+          minWidth: 110,
+          flex: 0.45,
+        },
+        { field: "statusDisplay", headerName: "Status", width: 92 },
+      );
+    }
     return cols;
   }, [canManage, dispatch]);
 

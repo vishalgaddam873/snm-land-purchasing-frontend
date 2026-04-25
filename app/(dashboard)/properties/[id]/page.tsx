@@ -60,7 +60,11 @@ export default async function PropertyDetailPage({ params }: PageProps) {
     <div className="space-y-8">
       <PageHeader
         title={property.propertyName || "Property"}
-        description="Full record: zone, branch, area, location, remarks, and verification."
+        description={
+          canManage
+            ? "Full record: zone, branch, area, location, remarks, and verification."
+            : "View zone, branch, land, structure, and remarks for this property."
+        }
         crumbs={crumbs}
       />
       <PropertyViewClient property={property} canManage={canManage} />

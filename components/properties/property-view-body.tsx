@@ -51,9 +51,12 @@ function formatVerifiedAt(iso: string | null): string {
 export function PropertyViewBody({
   property,
   showInternalNotes,
+  canManage,
 }: {
   property: PropertyRow;
   showInternalNotes: boolean;
+  /** When false (module view-only), hide status / verification labels from the record section. */
+  canManage: boolean;
 }) {
   return (
     <div className="w-full space-y-8">
@@ -109,22 +112,24 @@ export function PropertyViewBody({
         <PropertyRemarksDisplay remarks={property.remarks} />
       </section>
 
-      <section className="rounded-2xl border border-border/80 bg-card p-6 shadow-sm">
-        <h2 className="text-sm font-semibold text-foreground">
-          Record & verification
-        </h2>
-        <Separator className="my-4" />
-        <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
-          <Field label="Status">{labelFromSnake(property.status)}</Field>
-          <Field label="Verification">
-            {labelFromSnake(property.verificationStatus)}
-          </Field>
-          <Field label="Verified at">
-            {formatVerifiedAt(property.verifiedAt)}
-          </Field>
-          <Field label="Verified by">{verifiedByLabel(property)}</Field>
-        </div>
-      </section>
+      {canManage ? (
+        <section className="rounded-2xl border border-border/80 bg-card p-6 shadow-sm">
+          <h2 className="text-sm font-semibold text-foreground">
+            Record & verification
+          </h2>
+          <Separator className="my-4" />
+          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+            <Field label="Status">{labelFromSnake(property.status)}</Field>
+            <Field label="Verification">
+              {labelFromSnake(property.verificationStatus)}
+            </Field>
+            <Field label="Verified at">
+              {formatVerifiedAt(property.verifiedAt)}
+            </Field>
+            <Field label="Verified by">{verifiedByLabel(property)}</Field>
+          </div>
+        </section>
+      ) : null}
 
       {showInternalNotes ? (
         <section className="rounded-2xl border border-border/80 bg-card p-6 shadow-sm">

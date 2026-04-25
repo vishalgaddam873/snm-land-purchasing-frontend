@@ -43,6 +43,7 @@ export function PropertyViewClient({
       <PropertyViewBody
         property={property}
         showInternalNotes={canManage}
+        canManage={canManage}
       />
     </div>
   );
