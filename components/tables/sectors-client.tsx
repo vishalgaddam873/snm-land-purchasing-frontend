@@ -31,7 +31,7 @@ import { isPaginatedList } from "@/lib/api/paginated-list";
 import { DEFAULT_TABLE_PAGE_SIZE } from "@/hooks/use-client-pagination";
 import { compareZoneNumbers } from "@/lib/zone-number-sort";
 import { cn } from "@/lib/utils";
-import { Pencil, Plus, Trash2 } from "lucide-react";
+import { Download, Pencil, Plus, Trash2 } from "lucide-react";
 import * as React from "react";
 
 type PopulatedZone = {
@@ -65,6 +65,31 @@ function zoneIdValue(s: SectorRow): string {
     return String(z._id);
   }
   return String(z ?? "");
+}
+
+function filenameFromContentDisposition(cd: string | null): string | null {
+  if (!cd) return null;
+  const m = /filename\*=UTF-8''([^;]+)|filename="([^"]+)"|filename=([^;]+)/i.exec(
+    cd,
+  );
+  if (!m) return null;
+  const raw = (m[1] ?? m[2] ?? m[3] ?? "").trim();
+  if (!raw) return null;
+  try {
+    return decodeURIComponent(raw.replace(/"/g, ""));
+  } catch {
+    return raw.replace(/"/g, "");
+  }
+}
+
+function isUnfilteredSectorExport(
+  search: string,
+  fv: SectorListFilterValues,
+): boolean {
+  if (search.trim()) return false;
+  if (fv.zoneId.trim()) return false;
+  if (fv.status) return false;
+  return true;
 }
 
 function zoneOptionId(z: ZoneSelectOption): string {
@@ -104,11 +129,13 @@ async function fetchAllActiveZonesForSelect(): Promise<ZoneSelectOption[]> {
 
 export function SectorsClient({
   canManage,
+  canExportExcel,
   title,
   description,
   crumbs,
 }: {
   canManage: boolean;
+  canExportExcel: boolean;
   title: string;
   description: string;
   crumbs: Crumb[];
@@ -135,6 +162,7 @@ export function SectorsClient({
     null,
   );
   const [deleteLoading, setDeleteLoading] = React.useState(false);
+  const [exportLoading, setExportLoading] = React.useState(false);
   const [dialogZoneId, setDialogZoneId] = React.useState("");
 
   const [listPage, setListPage] = React.useState(1);
@@ -193,6 +221,50 @@ export function SectorsClient({
     },
     [],
   );
+
+  const handleExportSectors = React.useCallback(async () => {
+    setExportLoading(true);
+    setError(null);
+    try {
+      const qs = new URLSearchParams();
+      if (debouncedSearch) qs.set("search", debouncedSearch);
+      if (appliedFilters.zoneId) qs.set("zoneId", appliedFilters.zoneId);
+      if (appliedFilters.status) qs.set("status", appliedFilters.status);
+      const suffix = qs.toString() ? `?${qs.toString()}` : "";
+      const res = await fetch(`/api/sectors/export${suffix}`, {
+        cache: "no-store",
+      });
+      if (!res.ok) {
+        const data: { message?: string | string[] } = await res
+          .json()
+          .catch(() => ({}));
+        setError(
+          Array.isArray(data?.message)
+            ? data.message.join(", ")
+            : typeof data?.message === "string"
+              ? data.message
+              : "Export failed",
+        );
+        return;
+      }
+      const blob = await res.blob();
+      const fallback = isUnfilteredSectorExport(debouncedSearch, appliedFilters)
+        ? "Master-Sectors-Data.xlsx"
+        : `sectors-export-${new Date().toISOString().slice(0, 10)}.xlsx`;
+      const name =
+        filenameFromContentDisposition(
+          res.headers.get("content-disposition"),
+        ) ?? fallback;
+      const href = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = href;
+      a.download = name;
+      a.click();
+      URL.revokeObjectURL(href);
+    } finally {
+      setExportLoading(false);
+    }
+  }, [debouncedSearch, appliedFilters]);
 
   const skipSearchPageReset = React.useRef(true);
   React.useEffect(() => {
@@ -517,15 +589,29 @@ export function SectorsClient({
           zonesFetchError={zonesFetchError}
           toolbarAction={
             canManage ? (
-              <SectorsBulkExcelControls
-                onImported={() => {
-                  void fetchSectorsPage(
-                    listPage,
-                    debouncedSearch,
-                    appliedFilters,
-                  );
-                }}
-              />
+              <div className="flex flex-wrap items-stretch justify-end gap-2">
+                <SectorsBulkExcelControls
+                  onImported={() => {
+                    void fetchSectorsPage(
+                      listPage,
+                      debouncedSearch,
+                      appliedFilters,
+                    );
+                  }}
+                />
+                {canExportExcel ? (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="h-12 shrink-0 rounded-xl px-4"
+                    disabled={exportLoading}
+                    onClick={() => void handleExportSectors()}
+                  >
+                    <Download className="mr-2 size-4 shrink-0" />
+                    {exportLoading ? "Exporting…" : "Export Excel"}
+                  </Button>
+                ) : null}
+              </div>
             ) : null
           }
         />

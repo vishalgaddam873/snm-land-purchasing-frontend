@@ -33,6 +33,7 @@ type PopulatedSector = { _id: string; name: string; sectorNumber?: string };
 export type BranchRow = {
   _id: string;
   name: string;
+  branchCode?: string;
   zoneId: PopulatedZone | string;
   sectorId?: PopulatedSector | string | null;
   status: "active" | "inactive" | "deleted";
@@ -61,6 +62,7 @@ export type BranchesPageState = {
   departmentsLoading: boolean;
   departmentsFetchError: string | null;
   deleteLoading: boolean;
+  exportLoading: boolean;
 };
 
 const initialState: BranchesPageState = {
@@ -79,6 +81,7 @@ const initialState: BranchesPageState = {
   departmentsLoading: true,
   departmentsFetchError: null,
   deleteLoading: false,
+  exportLoading: false,
 };
 
 function appendBranchListFilters(
@@ -172,6 +175,80 @@ export const deleteBranchOnServer = createAsyncThunk<
   await dispatch(fetchBranchesList());
 });
 
+function buildBranchExportQuery(
+  search: string,
+  fv: BranchListFilterValues,
+): string {
+  const qs = new URLSearchParams();
+  if (search) qs.set("search", search);
+  appendBranchListFilters(qs, fv);
+  return qs.toString();
+}
+
+function isUnfilteredBranchExport(
+  search: string,
+  fv: BranchListFilterValues,
+): boolean {
+  if (search.trim()) return false;
+  if (fv.departmentId.trim()) return false;
+  if (fv.zoneId.trim()) return false;
+  if (fv.sectorId.trim()) return false;
+  if (fv.status) return false;
+  return true;
+}
+
+function filenameFromContentDisposition(cd: string | null): string | null {
+  if (!cd) return null;
+  const m = /filename\*=UTF-8''([^;]+)|filename="([^"]+)"|filename=([^;]+)/i.exec(
+    cd,
+  );
+  if (!m) return null;
+  const raw = (m[1] ?? m[2] ?? m[3] ?? "").trim();
+  if (!raw) return null;
+  try {
+    return decodeURIComponent(raw.replace(/"/g, ""));
+  } catch {
+    return raw.replace(/"/g, "");
+  }
+}
+
+export const exportBranchesExcel = createAsyncThunk<
+  void,
+  void,
+  { state: AppThunkRoot; rejectValue: string }
+>("branchesPage/exportExcel", async (_, { getState, rejectWithValue }) => {
+  const { debouncedSearch, appliedFilters } = getState().branchesPage;
+  const q = buildBranchExportQuery(debouncedSearch, appliedFilters);
+  const url = q ? `/api/branches/export?${q}` : "/api/branches/export";
+  const res = await fetch(url, { cache: "no-store" });
+  if (!res.ok) {
+    const data: unknown = await res.json().catch(() => ({}));
+    const msg =
+      data &&
+      typeof data === "object" &&
+      "message" in data &&
+      (data as { message?: unknown }).message != null
+        ? Array.isArray((data as { message: string[] }).message)
+          ? (data as { message: string[] }).message.join(", ")
+          : String((data as { message: string }).message)
+        : "Export failed";
+    return rejectWithValue(msg);
+  }
+  const blob = await res.blob();
+  const fallback = isUnfilteredBranchExport(debouncedSearch, appliedFilters)
+    ? "Master-Branches-Data.xlsx"
+    : `branches-export-${new Date().toISOString().slice(0, 10)}.xlsx`;
+  const name =
+    filenameFromContentDisposition(res.headers.get("content-disposition")) ??
+    fallback;
+  const href = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = href;
+  a.download = name;
+  a.click();
+  URL.revokeObjectURL(href);
+});
+
 const branchesPageSlice = createSlice({
   name: "branchesPage",
   initialState,
@@ -244,6 +321,17 @@ const branchesPageSlice = createSlice({
       .addCase(deleteBranchOnServer.rejected, (state, action) => {
         state.deleteLoading = false;
         state.error = action.payload ?? "Delete failed";
+      })
+      .addCase(exportBranchesExcel.pending, (state) => {
+        state.exportLoading = true;
+        state.error = null;
+      })
+      .addCase(exportBranchesExcel.fulfilled, (state) => {
+        state.exportLoading = false;
+      })
+      .addCase(exportBranchesExcel.rejected, (state, action) => {
+        state.exportLoading = false;
+        state.error = action.payload ?? "Export failed";
       });
   },
 });

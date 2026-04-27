@@ -27,7 +27,7 @@ import { type GridColDef } from "@mui/x-data-grid";
 import { isPaginatedList } from "@/lib/api/paginated-list";
 import { DEFAULT_TABLE_PAGE_SIZE } from "@/hooks/use-client-pagination";
 import { cn } from "@/lib/utils";
-import { Pencil, Plus, Trash2 } from "lucide-react";
+import { Download, Pencil, Plus, Trash2 } from "lucide-react";
 import * as React from "react";
 
 type PopulatedDept = { _id: string; name: string; code: string };
@@ -42,6 +42,7 @@ type DeptListRow = {
 type ZoneRow = {
   _id: string;
   name: string;
+  zoneCode?: string;
   zoneNumber: string;
   departmentId: PopulatedDept | string;
   status: "active" | "inactive" | "deleted";
@@ -63,6 +64,31 @@ function departmentIdValue(z: ZoneRow): string {
     return String(d._id);
   }
   return String(d ?? "");
+}
+
+function filenameFromContentDisposition(cd: string | null): string | null {
+  if (!cd) return null;
+  const m = /filename\*=UTF-8''([^;]+)|filename="([^"]+)"|filename=([^;]+)/i.exec(
+    cd,
+  );
+  if (!m) return null;
+  const raw = (m[1] ?? m[2] ?? m[3] ?? "").trim();
+  if (!raw) return null;
+  try {
+    return decodeURIComponent(raw.replace(/"/g, ""));
+  } catch {
+    return raw.replace(/"/g, "");
+  }
+}
+
+function isUnfilteredZoneExport(
+  search: string,
+  fv: ZoneListFilterValues,
+): boolean {
+  if (search.trim()) return false;
+  if (fv.departmentId.trim()) return false;
+  if (fv.status) return false;
+  return true;
 }
 
 /** Must stay ≤ backend `PaginationQueryDto` limit (Max 100). */
@@ -91,11 +117,13 @@ async function fetchDepartmentsForZones(): Promise<DepartmentSelectOption[]> {
 
 export function ZonesClient({
   canManage,
+  canExportExcel,
   title,
   description,
   crumbs,
 }: {
   canManage: boolean;
+  canExportExcel: boolean;
   title: string;
   description: string;
   crumbs: Crumb[];
@@ -122,6 +150,7 @@ export function ZonesClient({
   const [edit, setEdit] = React.useState<ZoneRow | null>(null);
   const [zoneToDelete, setZoneToDelete] = React.useState<ZoneRow | null>(null);
   const [deleteLoading, setDeleteLoading] = React.useState(false);
+  const [exportLoading, setExportLoading] = React.useState(false);
 
   const [listPage, setListPage] = React.useState(1);
   const [listMeta, setListMeta] = React.useState<{
@@ -171,6 +200,52 @@ export function ZonesClient({
     [],
   );
 
+  const handleExportZones = React.useCallback(async () => {
+    setExportLoading(true);
+    setError(null);
+    try {
+      const qs = new URLSearchParams();
+      if (debouncedSearch) qs.set("search", debouncedSearch);
+      if (appliedFilters.departmentId) {
+        qs.set("departmentId", appliedFilters.departmentId);
+      }
+      if (appliedFilters.status) qs.set("status", appliedFilters.status);
+      const suffix = qs.toString() ? `?${qs.toString()}` : "";
+      const res = await fetch(`/api/zones/export${suffix}`, {
+        cache: "no-store",
+      });
+      if (!res.ok) {
+        const data: { message?: string | string[] } = await res
+          .json()
+          .catch(() => ({}));
+        setError(
+          Array.isArray(data?.message)
+            ? data.message.join(", ")
+            : typeof data?.message === "string"
+              ? data.message
+              : "Export failed",
+        );
+        return;
+      }
+      const blob = await res.blob();
+      const fallback = isUnfilteredZoneExport(debouncedSearch, appliedFilters)
+        ? "Master-Zones-Data.xlsx"
+        : `zones-export-${new Date().toISOString().slice(0, 10)}.xlsx`;
+      const name =
+        filenameFromContentDisposition(
+          res.headers.get("content-disposition"),
+        ) ?? fallback;
+      const href = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = href;
+      a.download = name;
+      a.click();
+      URL.revokeObjectURL(href);
+    } finally {
+      setExportLoading(false);
+    }
+  }, [debouncedSearch, appliedFilters]);
+
   const skipSearchPageReset = React.useRef(true);
   React.useEffect(() => {
     const id = window.setTimeout(() => {
@@ -218,6 +293,7 @@ export function ZonesClient({
     setFormError(null);
     const form = new FormData(e.currentTarget);
     const name = String(form.get("name") ?? "").trim();
+    const zoneCode = String(form.get("zoneCode") ?? "").trim();
     const zoneNumber = String(form.get("zoneNumber") ?? "").trim();
     const departmentId = String(form.get("departmentId") ?? "").trim();
     const status = String(form.get("status") ?? "active") as ZoneRow["status"];
@@ -229,9 +305,17 @@ export function ZonesClient({
 
     const url = edit ? `/api/zones/${edit._id}` : "/api/zones";
     const method = edit ? "PATCH" : "POST";
-    const body = edit
-      ? { name, zoneNumber, departmentId, status }
-      : { name, zoneNumber, departmentId, status };
+    const body: Record<string, unknown> = {
+      name,
+      zoneNumber,
+      departmentId,
+      status,
+    };
+    if (edit) {
+      body.zoneCode = zoneCode;
+    } else if (zoneCode) {
+      body.zoneCode = zoneCode;
+    }
 
     const res = await fetch(url, {
       method,
@@ -324,6 +408,12 @@ export function ZonesClient({
     }
     cols.push(
       { field: "name", headerName: "Name", flex: 1, minWidth: 120 },
+      {
+        field: "zoneCode",
+        headerName: "Zone code",
+        width: 120,
+        valueGetter: (_value, row) => row.zoneCode?.trim() || "—",
+      },
       { field: "zoneNumber", headerName: "Number", width: 100 },
       {
         field: "departmentDisplay",
@@ -391,6 +481,16 @@ export function ZonesClient({
                       name="name"
                       required
                       defaultValue={edit?.name ?? ""}
+                      className="h-10 rounded-xl"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="zone-code">Zone code</Label>
+                    <Input
+                      id="zone-code"
+                      name="zoneCode"
+                      defaultValue={edit?.zoneCode ?? ""}
+                      placeholder="Optional"
                       className="h-10 rounded-xl"
                     />
                   </div>
@@ -486,15 +586,29 @@ export function ZonesClient({
           departmentsFetchError={departmentsFetchError}
           toolbarAction={
             canManage ? (
-              <ZonesBulkExcelControls
-                onImported={() => {
-                  void fetchZonesPage(
-                    listPage,
-                    debouncedSearch,
-                    appliedFilters,
-                  );
-                }}
-              />
+              <div className="flex flex-wrap items-stretch justify-end gap-2">
+                <ZonesBulkExcelControls
+                  onImported={() => {
+                    void fetchZonesPage(
+                      listPage,
+                      debouncedSearch,
+                      appliedFilters,
+                    );
+                  }}
+                />
+                {canExportExcel ? (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="h-12 shrink-0 rounded-xl px-4"
+                    disabled={exportLoading}
+                    onClick={() => void handleExportZones()}
+                  >
+                    <Download className="mr-2 size-4 shrink-0" />
+                    {exportLoading ? "Exporting…" : "Export Excel"}
+                  </Button>
+                ) : null}
+              </div>
             ) : null
           }
         />

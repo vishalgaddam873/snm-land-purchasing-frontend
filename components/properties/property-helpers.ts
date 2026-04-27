@@ -9,6 +9,7 @@ export type SectorMini = { _id: string; name: string; sectorNumber?: string };
 export type PopulatedBranch = {
   _id: string;
   name: string;
+  branchCode?: string;
   zoneId?: ZoneMini | string;
   sectorId?: SectorMini | string | null;
 };
@@ -16,6 +17,7 @@ export type PopulatedBranch = {
 export type BranchOption = {
   _id: string;
   name: string;
+  branchCode?: string;
   status?: string;
 };
 

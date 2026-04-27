@@ -28,6 +28,7 @@ import {
   applyBranchFilters,
   clearAllBranchListFilters,
   deleteBranchOnServer,
+  exportBranchesExcel,
   fetchBranchesList,
   loadBranchesFilterOptions,
   setDebouncedSearch,
@@ -42,7 +43,7 @@ import { cn } from "@/lib/utils";
 import IconButton from "@mui/material/IconButton";
 import Stack from "@mui/material/Stack";
 import { type GridColDef } from "@mui/x-data-grid";
-import { Pencil, Plus, Trash2 } from "lucide-react";
+import { Download, Pencil, Plus, Trash2 } from "lucide-react";
 import * as React from "react";
 
 type BranchGridRow = BranchRow & {
@@ -138,11 +139,13 @@ async function fetchSectorsForZone(
 
 export function BranchesClient({
   canManage,
+  canExportExcel,
   title,
   description,
   crumbs,
 }: {
   canManage: boolean;
+  canExportExcel: boolean;
   title: string;
   description: string;
   crumbs: Crumb[];
@@ -167,6 +170,7 @@ export function BranchesClient({
     (s) => s.branchesPage.departmentsFetchError,
   );
   const deleteLoading = useAppSelector((s) => s.branchesPage.deleteLoading);
+  const exportLoading = useAppSelector((s) => s.branchesPage.exportLoading);
 
   const [formError, setFormError] = React.useState<string | null>(null);
   const [dialogZoneId, setDialogZoneId] = React.useState("");
@@ -277,6 +281,7 @@ export function BranchesClient({
     setFormError(null);
     const form = new FormData(e.currentTarget);
     const name = String(form.get("name") ?? "").trim();
+    const branchCode = String(form.get("branchCode") ?? "").trim();
     const zoneId = dialogZoneId.trim();
     const status = String(form.get("status") ?? "active") as BranchRow["status"];
 
@@ -289,7 +294,17 @@ export function BranchesClient({
     const method = edit ? "PATCH" : "POST";
     const sectorId =
       dialogSectorId.trim() !== "" ? dialogSectorId.trim() : null;
-    const body = { name, zoneId, status, sectorId };
+    const body: Record<string, unknown> = {
+      name,
+      zoneId,
+      status,
+      sectorId,
+    };
+    if (edit) {
+      body.branchCode = branchCode;
+    } else if (branchCode) {
+      body.branchCode = branchCode;
+    }
 
     const res = await fetch(url, {
       method,
@@ -375,6 +390,12 @@ export function BranchesClient({
     cols.push(
       { field: "name", headerName: "Branch name", flex: 1, minWidth: 140 },
       {
+        field: "branchCode",
+        headerName: "Branch code",
+        width: 120,
+        valueGetter: (_value, row) => row.branchCode?.trim() || "—",
+      },
+      {
         field: "sectorDisplay",
         headerName: "Sector",
         flex: 0.55,
@@ -457,6 +478,16 @@ export function BranchesClient({
                       name="name"
                       required
                       defaultValue={edit?.name ?? ""}
+                      className="h-10 rounded-xl"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="branch-code">Branch code</Label>
+                    <Input
+                      id="branch-code"
+                      name="branchCode"
+                      defaultValue={edit?.branchCode ?? ""}
+                      placeholder="Optional"
                       className="h-10 rounded-xl"
                     />
                   </div>
@@ -553,6 +584,18 @@ export function BranchesClient({
                 <BranchesBulkExcelControls
                   onImported={() => void dispatch(fetchBranchesList())}
                 />
+                {canExportExcel ? (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="h-12 shrink-0 rounded-xl px-4"
+                    disabled={exportLoading}
+                    onClick={() => void dispatch(exportBranchesExcel())}
+                  >
+                    <Download className="mr-2 size-4 shrink-0" />
+                    {exportLoading ? "Exporting…" : "Export Excel"}
+                  </Button>
+                ) : null}
               </div>
             ) : undefined
           }

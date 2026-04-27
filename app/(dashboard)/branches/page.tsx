@@ -25,6 +25,8 @@ export default async function BranchesPage() {
   if (!me) redirect("/login");
 
   const canManage = moduleAllowsEdit(me, "branches");
+  const canExportExcel =
+    canManage && String(me.role ?? "").toLowerCase() !== "moderator";
 
   const crumbs = [
     { href: "/dashboard", label: "Home" },
@@ -34,6 +36,7 @@ export default async function BranchesPage() {
   return (
     <BranchesClient
       canManage={canManage}
+      canExportExcel={canExportExcel}
       title="All Branches"
       description={
         canManage

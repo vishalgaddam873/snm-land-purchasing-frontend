@@ -25,6 +25,8 @@ export default async function ZonesPage() {
   if (!me) redirect("/login");
 
   const canManage = moduleAllowsEdit(me, "zones");
+  const canExportExcel =
+    canManage && String(me.role ?? "").toLowerCase() !== "moderator";
 
   const crumbs = [
     { href: "/dashboard", label: "Home" },
@@ -34,6 +36,7 @@ export default async function ZonesPage() {
   return (
     <ZonesClient
       canManage={canManage}
+      canExportExcel={canExportExcel}
       title="All Zones"
       description={
         canManage

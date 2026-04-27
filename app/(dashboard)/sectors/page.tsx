@@ -25,6 +25,8 @@ export default async function SectorsPage() {
   if (!me) redirect("/login");
 
   const canManage = moduleAllowsEdit(me, "sectors");
+  const canExportExcel =
+    canManage && String(me.role ?? "").toLowerCase() !== "moderator";
 
   const crumbs = [
     { href: "/dashboard", label: "Home" },
@@ -34,6 +36,7 @@ export default async function SectorsPage() {
   return (
     <SectorsClient
       canManage={canManage}
+      canExportExcel={canExportExcel}
       title="Sectors"
       description={
         canManage
